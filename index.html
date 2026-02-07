@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#121212">
-    <title>Clock-Dilla v19.3</title>
+    <title>Clock-Dilla v20.3 (Fixed)</title>
     <style>
         :root {
             /* Palette */
@@ -83,39 +83,61 @@
         .menu-strip { width: 50px; background: #252525; display: flex; flex-direction: column; align-items: center; justify-content: center; border-left: 1px solid #333; cursor: pointer; }
         .menu-text { writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); white-space: nowrap; color: var(--grey); font-weight: 800; font-size: 14px; letter-spacing: 2px; }
 
-        /* --- FLASH INPUT TRAY --- */
+        /* --- FLASH INPUT TRAY (4x4 Grid) --- */
         .flash-tray {
-            flex: 1; background: #000; padding: 10px; display: flex; flex-direction: column;
-            overflow-y: auto; padding-bottom: 220px; opacity: 0.3; pointer-events: none; transition: opacity 0.2s;
+            flex: 1;
+            background: #000;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            /* 300px Padding ensures bottom row clears Start Button */
+            padding-bottom: 300px; 
+            opacity: 0.3; 
+            pointer-events: none;
+            transition: opacity 0.2s;
+            scrollbar-width: none;
         }
+        .flash-tray::-webkit-scrollbar { display: none; }
         .flash-tray.active { opacity: 1; pointer-events: auto; }
         
         .flash-msg { color: #666; font-size: 12px; text-align: center; text-transform: uppercase; margin-bottom: 8px; font-weight: 700; }
-        .flash-grid { display: flex; gap: 10px; height: 100%; min-height: 200px; }
         
-        .flash-players { width: 25%; display: flex; flex-direction: column; gap: 6px; }
-        .fp-btn { 
-            flex: 1; background: #222; border: 1px solid #444; border-radius: 8px; 
-            color: #666; font-weight: 700; font-size: 11px; cursor: pointer; 
+        .flash-grid {
+            display: grid;
+            /* Player Col is slightly wider */
+            grid-template-columns: 22% 1fr 1fr 1fr; 
+            grid-template-rows: repeat(4, 1fr);
+            gap: 8px;
+            height: 100%;
+            min-height: 240px;
+        }
+
+        /* Player Button in Flash Grid */
+        .fg-player {
+            background: #252525; border: 1px solid #555; border-radius: 8px; 
+            color: #888; font-weight: 800; font-size: 11px; cursor: pointer; 
             display: flex; align-items: center; justify-content: center; text-transform: uppercase;
         }
-        .fp-btn.selected { background: var(--blue); color: white; border-color: var(--blue); }
+        .fg-player.selected { background: var(--blue); color: white; border-color: var(--blue); }
 
-        .flash-zones { width: 75%; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-        .fz-btn {
-            background: #222; border: 1px solid #444; border-radius: 8px;
+        /* Zone Button in Flash Grid */
+        .fg-zone {
+            background: #1A1A1A; border: 1px solid #333; border-radius: 8px;
             color: #ccc; font-weight: 700; font-size: 13px; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
         }
-        .fz-btn:active { background: #444; transform: scale(0.98); }
-        .fz-btn.tee { color: var(--green); border-color: #355; }
+        .fg-zone:active { background: #444; transform: scale(0.98); }
+        .fg-zone.tee { color: var(--green); border-color: #355; }
+        
+        .fg-empty { pointer-events: none; }
 
         /* --- FOOTER --- */
         .controls-area {
             position: fixed; bottom: 0; left: 0; right: 0;
             background: rgba(28, 28, 30, 0.98); backdrop-filter: blur(15px);
             padding: 12px; 
-            /* Lifted 60px + Safe Area */
+            /* 60px lift */
             padding-bottom: max(60px, env(safe-area-inset-bottom)); 
             border-top: 1px solid #333; display: flex; z-index: 100;
         }
@@ -139,7 +161,6 @@
         .menu-export { color: var(--blue) !important; border-color: var(--blue) !important; margin-top: auto; border: 1px solid #333; }
         .menu-clear { color: var(--red) !important; border-color: var(--red) !important; border: 1px solid #333; }
         
-        /* Rename */
         .rename-input { width: 100%; background: #333; border: 1px solid #555; color: white; padding: 10px; border-radius: 6px; font-size: 16px; text-transform: uppercase; text-align: center; margin-bottom: 10px; outline: none; }
         .stat-label { font-size: 10px; color: #888; text-align:center; margin-top:10px; margin-bottom: 4px; }
         .stat-val { font-size: 14px; color: #fff; text-align:center; font-family:monospace; margin-bottom:5px; font-weight:700; white-space: pre-line; }
@@ -151,8 +172,9 @@
         .offset-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 10px; }
         .offset-display { font-family: monospace; font-size: 24px; color: #666; font-weight: 700; min-width: 80px; text-align: center; }
         .reset-icon { color: #666; font-size: 10px; border: 1px solid #444; padding: 4px 8px; border-radius: 4px; cursor: pointer; text-transform: uppercase; }
+        .reset-icon:active { background: #333; color: #fff; }
 
-        /* History Table */
+        /* History Modal Table */
         .hist-modal-table { width: 100%; font-size: 12px; color: #fff; border-collapse: collapse; }
         .hist-modal-table th { text-align: center; border-bottom: 1px solid #444; padding: 8px 4px; color: #888; position: sticky; top: 0; background: #222; }
         .hist-modal-table td { border-bottom: 1px solid #333; padding: 10px 4px; text-align: center; }
@@ -200,17 +222,11 @@
         </div>
     </div>
 
-    <!-- FLASH INPUT TRAY -->
+    <!-- FLASH INPUT TRAY (4x4 Grid) -->
     <div class="flash-tray" id="flash-tray">
         <div class="flash-msg" id="flash-msg">SELECT RESULT</div>
-        <div class="flash-grid">
-            <div class="flash-players">
-                <button class="fp-btn" id="fp-skip" onclick="app.setFlashPlayer('Skip')">SKIP</button>
-                <button class="fp-btn" id="fp-3rd" onclick="app.setFlashPlayer('3rd')">3RD</button>
-                <button class="fp-btn" id="fp-2nd" onclick="app.setFlashPlayer('2nd')">2ND</button>
-                <button class="fp-btn" id="fp-lead" onclick="app.setFlashPlayer('Lead')">LEAD</button>
-            </div>
-            <div class="flash-zones" id="flash-zones"></div>
+        <div class="flash-grid" id="flash-grid">
+            <!-- Populated by JS -->
         </div>
     </div>
 
@@ -219,6 +235,7 @@
     </div>
 
     <!-- MODALS -->
+    <!-- Menu -->
     <div class="modal" id="menu-modal" onclick="if(event.target===this) app.closeModals()">
         <div class="side-stack-content">
             <div class="modal-header">MENU</div>
@@ -229,6 +246,7 @@
         </div>
     </div>
 
+    <!-- History View -->
     <div class="modal" id="history-modal" onclick="if(event.target===this) app.closeModals()">
         <div style="width:90%; max-width:400px; background:#222; padding:10px; border-radius:12px; height:80vh; display:flex; flex-direction:column; border:1px solid #444;">
             <div class="modal-header">
@@ -241,10 +259,10 @@
                     <tbody id="full-history-body"></tbody>
                 </table>
             </div>
-            <button class="zone-btn" style="margin-top:10px;" onclick="app.closeModals()">CLOSE</button>
         </div>
     </div>
 
+    <!-- Rename/Offset -->
     <div class="modal" id="rename-modal" onclick="if(event.target===this) app.closeModals()">
         <div class="side-stack-content" style="justify-content:center; background:rgba(20,20,20,0.95);">
             <div class="modal-header">PROFILE SETTINGS</div>
@@ -268,6 +286,7 @@
         </div>
     </div>
     
+    <!-- Confirm Clear -->
     <div class="modal" id="confirm-modal" onclick="if(event.target===this) app.closeModals()">
         <div class="side-stack-content" style="justify-content:center; background:rgba(50,0,0,0.9);">
             <div class="modal-header" style="color:#fff; font-weight:800;">DELETE ALL?</div>
@@ -287,7 +306,7 @@
             minBH: 2.0, maxBH: 6.0, fastLimitBH: 3.65,
             minHH: 7.0, maxHH: 22.0, fastLimitHH: 11.70,
 
-            // Zones (High at top)
+            // Zones mapped for lookup
             zones: [
                 {v: 1.0, n: "High", d: 2.5}, {v: 2.0, n: "Mid", d: 7.5}, {v: 3.0, n: "Tight", d: 12.5},
                 {v: 4.0, n: "T 12", d: 15.5}, {v: 5.0, n: "T 8", d: 17.5}, {v: 6.0, n: "T 4", d: 19.5},
@@ -295,6 +314,14 @@
                 {v: 8.0, n: "B 4", d: 22.5}, {v: 9.0, n: "B 8", d: 24.5}, {v: 10.0, n: "B 12", d: 26.5},
                 {v: 11.0, n: "Hack", d: 33.0}, {v: 11.5, n: "Board", d: 39.0}
             ],
+            // 4x4 Grid Map
+            gridMap: [
+                {t:'p', id:'Skip'}, {t:'z', n:'High'}, {t:'z', n:'Mid'}, {t:'z', n:'Tight'},
+                {t:'p', id:'3rd'},  {t:'z', n:'T 12'}, {t:'z', n:'T 8'}, {t:'e'},
+                {t:'p', id:'2nd'},  {t:'z', n:'T 4'},  {t:'z', n:'TEE'}, {t:'z', n:'B 4'},
+                {t:'p', id:'Lead'}, {t:'e'},          {t:'z', n:'B 8'}, {t:'z', n:'B 12'}
+            ],
+            
             refRows: [{v: 11.0, n: "Hack", d: 33.0}, {v: 10.0, n: "B 12", d: 26.5}, {v: 7.0, n: "Tee", d: 21.0}, {v: 4.0, n: "T 12", d: 15.5}, {v: 2.0, n: "Mid", d: 7.5}]
         };
 
@@ -310,11 +337,11 @@
 
             init() {
                 const ids = ['btn-main','time-bh','pred-bh','card-bh','time-hh','pred-hh','card-hh',
-                             'ref-table','flash-tray','flash-zones','full-history-body',
+                             'ref-table','flash-tray','flash-grid','full-history-body',
                              'menu-modal','calib-modal','player-edit-modal','zone-list',
                              'p-skip','p-3rd','p-2nd','p-lead','rename-modal','rename-input','confirm-modal',
                              'profile-container','calc-offset-display','manual-offset-display', 'manual-offset-input',
-                             'fp-skip','fp-3rd','fp-2nd','fp-lead', 'history-modal', 'flash-msg'];
+                             'history-modal', 'flash-msg'];
                 ids.forEach(id => {
                     const el = document.getElementById(id);
                     if(el) this.ui[id] = el;
@@ -338,14 +365,33 @@
             },
 
             buildFlashGrid() {
-                const list = this.ui['flash-zones'];
-                CONFIG.zones.forEach(z => {
-                    const b = document.createElement('button');
-                    b.className = 'fz-btn';
-                    if(z.n === 'TEE') b.classList.add('tee');
-                    b.innerText = z.n;
-                    b.onclick = () => this.commitCalibration(z.d);
-                    list.appendChild(b);
+                const container = this.ui['flash-grid'];
+                container.innerHTML = '';
+                
+                CONFIG.gridMap.forEach((item, index) => {
+                    const div = document.createElement('div');
+                    
+                    if (item.t === 'p') {
+                        const btn = document.createElement('button');
+                        btn.className = 'fg-player';
+                        btn.id = `fg-${item.id}`; 
+                        btn.innerText = this.profileNames[item.id];
+                        btn.onclick = () => this.setFlashPlayer(item.id);
+                        div.appendChild(btn);
+                    } else if (item.t === 'z') {
+                        const btn = document.createElement('button');
+                        btn.className = 'fg-zone';
+                        if(item.n === 'TEE') btn.classList.add('tee');
+                        btn.innerText = item.n;
+                        
+                        const zoneDef = CONFIG.zones.find(z => z.n === item.n);
+                        const dist = zoneDef ? zoneDef.d : 0;
+                        btn.onclick = () => this.commitCalibration(dist);
+                        div.appendChild(btn);
+                    } else {
+                        div.className = 'fg-empty';
+                    }
+                    container.appendChild(div.firstChild || div);
                 });
             },
 
@@ -471,13 +517,19 @@
             },
             
             updateFlashPlayers(activeP) {
-                const map = { 'Skip':'fp-skip', '3rd':'fp-3rd', '2nd':'fp-2nd', 'Lead':'fp-lead' };
-                Object.values(map).forEach(id => this.ui[id].className = 'fp-btn');
+                const map = { 'Skip':'fg-Skip', '3rd':'fg-3rd', '2nd':'fg-2nd', 'Lead':'fp-lead' };
+                // Using IDs in grid (fg-Skip etc)
+                const players = ['Skip', '3rd', '2nd', 'Lead'];
                 
-                for(let k in map) {
-                    this.ui[map[k]].innerText = this.profileNames[k];
-                    if (activeP === k) this.ui[map[k]].className = 'fp-btn selected';
-                }
+                players.forEach(key => {
+                    const btn = document.getElementById(`fg-${key}`);
+                    if(btn) {
+                        btn.className = 'fg-player';
+                        btn.innerText = this.profileNames[key];
+                        if (activeP === key) btn.className = 'fg-player selected';
+                    }
+                });
+                
                 const pName = (activeP === '-' || activeP === 'TEAM') ? "TEAM" : this.profileNames[activeP];
                 this.ui['flash-msg'].innerText = `SELECT RESULT FOR ${pName}`;
             },
@@ -545,7 +597,7 @@
                 if (this.currentProfile === 'TEAM' || this.currentProfile === '-') return this.iceOffsetBH;
                 const man = this.manualOffsets[this.currentProfile];
                 if (man && man !== 0) {
-                    const teamOffset = this.calcSmartStats('BH', 'TEAM').mean;
+                    const teamOffset = this.calcOffsetForProfile('TEAM');
                     const shift = man * CONFIG.bhSlope; 
                     return teamOffset + shift;
                 }
@@ -570,7 +622,6 @@
             },
 
             saveShot(shot) {
-                // Snapshot current offset
                 shot.fixedOffsetBH = this.getProfileOffsetBH();
                 shot.fixedOffsetHH = this.iceOffsetHH;
                 this.history.unshift(shot);
@@ -604,7 +655,6 @@
                 let errors = [];
                 let outliers = new Set();
                 
-                // First Pass: Collect Valid Errors
                 this.history.forEach(s => {
                      if(s.actual === null) return;
                      if(profile !== 'TEAM' && s.player !== profile) return;
@@ -618,25 +668,21 @@
                 
                 if(errors.length === 0) return { mean: 0, sd: 0, outlierIds: outliers };
                 
-                // 1. Initial Mean
                 const sum = errors.reduce((a,b) => a+b.val, 0);
                 const mean = sum / errors.length;
                 
                 if (errors.length < 4) return { mean, sd: 0, outlierIds: outliers }; 
                 
-                // 2. SD
                 const sqDiff = errors.map(e => Math.pow(e.val - mean, 2));
                 const avgSq = sqDiff.reduce((a,b) => a+b, 0) / errors.length;
                 const sd = Math.sqrt(avgSq);
                 
-                // 3. Filter Outliers (2 SD)
                 const clean = errors.filter(e => {
                     const isOut = Math.abs(e.val - mean) > (2 * sd);
                     if(isOut) outliers.add(e.id);
                     return !isOut;
                 });
                 
-                // 4. Final Mean
                 const cleanSum = clean.reduce((a,b) => a+b.val, 0);
                 const finalMean = clean.length > 0 ? cleanSum / clean.length : mean;
 
@@ -661,7 +707,8 @@
                     else if (this.currentProfile === '3rd') activeId = 'p-3rd';
                     else if (this.currentProfile === '2nd') activeId = 'p-2nd';
                     else if (this.currentProfile === 'Lead') activeId = 'p-lead';
-                    if(activeId) this.ui[activeId].className = 'p-btn active';
+                    const btn = document.getElementById(activeId);
+                    if(btn) btn.className = 'p-btn active';
                 }
             },
 
@@ -757,7 +804,6 @@
                     let bhClass = s.useBH ? 'hm-active' : 'hm-ignored';
                     let hhClass = s.useHH ? 'hm-active' : 'hm-ignored';
                     
-                    // Independent Outlier Highlighting
                     if (s.useBH && this.statsBH.outlierIds && this.statsBH.outlierIds.has(s.id)) bhClass = 'hm-outlier';
                     if (s.useHH && this.statsHH.outlierIds && this.statsHH.outlierIds.has(s.id)) hhClass = 'hm-outlier';
 
@@ -768,19 +814,17 @@
             vibrate(p) { if(navigator.vibrate) navigator.vibrate(p); },
             saveStorage() { 
                 const data = { history: this.history, profileNames: this.profileNames, manualOffsets: this.manualOffsets };
-                localStorage.setItem('cp_v19_4', JSON.stringify(data)); 
+                localStorage.setItem('cp_v20_3', JSON.stringify(data)); 
             },
             loadData() { 
-                const d = localStorage.getItem('cp_v19_4'); 
+                const d = localStorage.getItem('cp_v20_3'); 
                 if(d) {
                     const data = JSON.parse(d);
                     this.history = data.history || [];
                     if(data.profileNames) this.profileNames = data.profileNames;
                     if(data.manualOffsets) this.manualOffsets = data.manualOffsets;
                 }
-            },
-            // Legacy stubs
-            toggleHistoryUse: function(){}, openPlayerEdit: function(){}, openModal: function(){}, calibrate: function(){}
+            }
         };
         app.init();
     </script>
