@@ -18,6 +18,7 @@
             --dark: #1C1C1E;
             --bg: #000000;
             --text: #FFFFFF;
+            --disabled: #333333;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Roboto", sans-serif; }
@@ -321,7 +322,6 @@
                 {t:'p', id:'2nd'},  {t:'z', n:'T 4'},  {t:'z', n:'TEE'}, {t:'z', n:'B 4'},
                 {t:'p', id:'Lead'}, {t:'e'},          {t:'z', n:'B 8'}, {t:'z', n:'B 12'}
             ],
-            
             refRows: [{v: 11.0, n: "Hack", d: 33.0}, {v: 10.0, n: "B 12", d: 26.5}, {v: 7.0, n: "Tee", d: 21.0}, {v: 4.0, n: "T 12", d: 15.5}, {v: 2.0, n: "Mid", d: 7.5}]
         };
 
@@ -519,14 +519,16 @@
             updateFlashPlayers(activeP) {
                 const map = { 'Skip':'fg-Skip', '3rd':'fg-3rd', '2nd':'fg-2nd', 'Lead':'fp-lead' };
                 // Using IDs in grid (fg-Skip etc)
-                const players = ['Skip', '3rd', '2nd', 'Lead'];
+                // Note: The Grid IDs are "fg-Skip", but the map here was for the previous layout.
+                // We iterate over the profileNames keys directly.
+                const keys = ['Skip', '3rd', '2nd', 'Lead'];
                 
-                players.forEach(key => {
-                    const btn = document.getElementById(`fg-${key}`);
+                keys.forEach(k => {
+                    const btn = document.getElementById(`fg-${k}`);
                     if(btn) {
                         btn.className = 'fg-player';
-                        btn.innerText = this.profileNames[key];
-                        if (activeP === key) btn.className = 'fg-player selected';
+                        btn.innerText = this.profileNames[k];
+                        if (activeP === k) btn.className = 'fg-player selected';
                     }
                 });
                 
@@ -597,7 +599,7 @@
                 if (this.currentProfile === 'TEAM' || this.currentProfile === '-') return this.iceOffsetBH;
                 const man = this.manualOffsets[this.currentProfile];
                 if (man && man !== 0) {
-                    const teamOffset = this.calcOffsetForProfile('TEAM');
+                    const teamOffset = this.calcSmartStats('BH', 'TEAM').mean;
                     const shift = man * CONFIG.bhSlope; 
                     return teamOffset + shift;
                 }
@@ -824,7 +826,9 @@
                     if(data.profileNames) this.profileNames = data.profileNames;
                     if(data.manualOffsets) this.manualOffsets = data.manualOffsets;
                 }
-            }
+            },
+            // Legacy stubs
+            toggleHistoryUse: function(){}, openPlayerEdit: function(){}, openModal: function(){}, calibrate: function(){}
         };
         app.init();
     </script>
