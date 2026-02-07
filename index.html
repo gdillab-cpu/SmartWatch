@@ -6,10 +6,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#121212">
-    <title>Clock-Dilla v20.3 (Fixed)</title>
+    <title>Clock-Dilla v20.6</title>
     <style>
         :root {
-            /* Palette */
             --blue: #0A84FF;
             --green: #30D158; 
             --red: #FF453A;
@@ -18,7 +17,6 @@
             --dark: #1C1C1E;
             --bg: #000000;
             --text: #FFFFFF;
-            --disabled: #333333;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Roboto", sans-serif; }
@@ -36,7 +34,7 @@
             padding: max(10px, env(safe-area-inset-top)) 10px 10px 10px;
             border-bottom: 1px solid #333;
             display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-            z-index: 50; flex-shrink: 0; position: relative;
+            z-index: 50; flex-shrink: 0;
         }
 
         .timer-card {
@@ -84,34 +82,29 @@
         .menu-strip { width: 50px; background: #252525; display: flex; flex-direction: column; align-items: center; justify-content: center; border-left: 1px solid #333; cursor: pointer; }
         .menu-text { writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); white-space: nowrap; color: var(--grey); font-weight: 800; font-size: 14px; letter-spacing: 2px; }
 
-        /* --- FLASH INPUT TRAY (4x4 Grid) --- */
+        /* --- FLASH INPUT TRAY (4x4 Grid, No Header) --- */
         .flash-tray {
             flex: 1;
             background: #000;
             padding: 10px;
             display: flex;
             flex-direction: column;
+            justify-content: center; /* Center Content */
             overflow-y: auto;
-            /* 300px Padding ensures bottom row clears Start Button */
-            padding-bottom: 300px; 
-            opacity: 0.3; 
-            pointer-events: none;
-            transition: opacity 0.2s;
+            /* Extra Padding to clear Start Button */
+            padding-bottom: 250px; 
+            opacity: 0.3; pointer-events: none; transition: opacity 0.2s;
             scrollbar-width: none;
         }
         .flash-tray::-webkit-scrollbar { display: none; }
         .flash-tray.active { opacity: 1; pointer-events: auto; }
         
-        .flash-msg { color: #666; font-size: 12px; text-align: center; text-transform: uppercase; margin-bottom: 8px; font-weight: 700; }
-        
         .flash-grid {
             display: grid;
-            /* Player Col is slightly wider */
             grid-template-columns: 22% 1fr 1fr 1fr; 
-            grid-template-rows: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 55px); /* Fixed comfortable height */
             gap: 8px;
-            height: 100%;
-            min-height: 240px;
+            width: 100%;
         }
 
         /* Player Button in Flash Grid */
@@ -119,6 +112,7 @@
             background: #252525; border: 1px solid #555; border-radius: 8px; 
             color: #888; font-weight: 800; font-size: 11px; cursor: pointer; 
             display: flex; align-items: center; justify-content: center; text-transform: uppercase;
+            padding: 0; margin: 0;
         }
         .fg-player.selected { background: var(--blue); color: white; border-color: var(--blue); }
 
@@ -127,6 +121,7 @@
             background: #1A1A1A; border: 1px solid #333; border-radius: 8px;
             color: #ccc; font-weight: 700; font-size: 13px; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
+            padding: 0; margin: 0;
         }
         .fg-zone:active { background: #444; transform: scale(0.98); }
         .fg-zone.tee { color: var(--green); border-color: #355; }
@@ -138,8 +133,7 @@
             position: fixed; bottom: 0; left: 0; right: 0;
             background: rgba(28, 28, 30, 0.98); backdrop-filter: blur(15px);
             padding: 12px; 
-            /* 60px lift */
-            padding-bottom: max(60px, env(safe-area-inset-bottom)); 
+            padding-bottom: max(60px, env(safe-area-inset-bottom)); /* Lifted */
             border-top: 1px solid #333; display: flex; z-index: 100;
         }
 
@@ -225,9 +219,8 @@
 
     <!-- FLASH INPUT TRAY (4x4 Grid) -->
     <div class="flash-tray" id="flash-tray">
-        <div class="flash-msg" id="flash-msg">SELECT RESULT</div>
         <div class="flash-grid" id="flash-grid">
-            <!-- Populated by JS -->
+            <!-- JS Populates 4x4 Grid -->
         </div>
     </div>
 
@@ -236,7 +229,6 @@
     </div>
 
     <!-- MODALS -->
-    <!-- Menu -->
     <div class="modal" id="menu-modal" onclick="if(event.target===this) app.closeModals()">
         <div class="side-stack-content">
             <div class="modal-header">MENU</div>
@@ -247,7 +239,6 @@
         </div>
     </div>
 
-    <!-- History View -->
     <div class="modal" id="history-modal" onclick="if(event.target===this) app.closeModals()">
         <div style="width:90%; max-width:400px; background:#222; padding:10px; border-radius:12px; height:80vh; display:flex; flex-direction:column; border:1px solid #444;">
             <div class="modal-header">
@@ -263,7 +254,6 @@
         </div>
     </div>
 
-    <!-- Rename/Offset -->
     <div class="modal" id="rename-modal" onclick="if(event.target===this) app.closeModals()">
         <div class="side-stack-content" style="justify-content:center; background:rgba(20,20,20,0.95);">
             <div class="modal-header">PROFILE SETTINGS</div>
@@ -287,7 +277,6 @@
         </div>
     </div>
     
-    <!-- Confirm Clear -->
     <div class="modal" id="confirm-modal" onclick="if(event.target===this) app.closeModals()">
         <div class="side-stack-content" style="justify-content:center; background:rgba(50,0,0,0.9);">
             <div class="modal-header" style="color:#fff; font-weight:800;">DELETE ALL?</div>
@@ -322,6 +311,7 @@
                 {t:'p', id:'2nd'},  {t:'z', n:'T 4'},  {t:'z', n:'TEE'}, {t:'z', n:'B 4'},
                 {t:'p', id:'Lead'}, {t:'e'},          {t:'z', n:'B 8'}, {t:'z', n:'B 12'}
             ],
+            
             refRows: [{v: 11.0, n: "Hack", d: 33.0}, {v: 10.0, n: "B 12", d: 26.5}, {v: 7.0, n: "Tee", d: 21.0}, {v: 4.0, n: "T 12", d: 15.5}, {v: 2.0, n: "Mid", d: 7.5}]
         };
 
@@ -338,7 +328,7 @@
             init() {
                 const ids = ['btn-main','time-bh','pred-bh','card-bh','time-hh','pred-hh','card-hh',
                              'ref-table','flash-tray','flash-grid','full-history-body',
-                             'menu-modal','calib-modal','player-edit-modal','zone-list',
+                             'menu-modal','calib-modal','menu-modal','player-edit-modal','zone-list',
                              'p-skip','p-3rd','p-2nd','p-lead','rename-modal','rename-input','confirm-modal',
                              'profile-container','calc-offset-display','manual-offset-display', 'manual-offset-input',
                              'history-modal', 'flash-msg'];
@@ -517,7 +507,7 @@
             },
             
             updateFlashPlayers(activeP) {
-                const map = { 'Skip':'fg-Skip', '3rd':'fg-3rd', '2nd':'fg-2nd', 'Lead':'fp-lead' };
+                const map = { 'Skip':'fg-Skip', '3rd':'fg-3rd', '2nd':'fg-2nd', 'Lead':'fg-Lead' };
                 // Using IDs in grid (fg-Skip etc)
                 // Note: The Grid IDs are "fg-Skip", but the map here was for the previous layout.
                 // We iterate over the profileNames keys directly.
@@ -526,14 +516,11 @@
                 keys.forEach(k => {
                     const btn = document.getElementById(`fg-${k}`);
                     if(btn) {
-                        btn.className = 'fg-player';
                         btn.innerText = this.profileNames[k];
+                        btn.className = 'fg-player';
                         if (activeP === k) btn.className = 'fg-player selected';
                     }
                 });
-                
-                const pName = (activeP === '-' || activeP === 'TEAM') ? "TEAM" : this.profileNames[activeP];
-                this.ui['flash-msg'].innerText = `SELECT RESULT FOR ${pName}`;
             },
             
             setFlashPlayer(p) {
@@ -599,7 +586,7 @@
                 if (this.currentProfile === 'TEAM' || this.currentProfile === '-') return this.iceOffsetBH;
                 const man = this.manualOffsets[this.currentProfile];
                 if (man && man !== 0) {
-                    const teamOffset = this.calcSmartStats('BH', 'TEAM').mean;
+                    const teamOffset = this.calcOffsetForProfile('TEAM');
                     const shift = man * CONFIG.bhSlope; 
                     return teamOffset + shift;
                 }
@@ -816,10 +803,10 @@
             vibrate(p) { if(navigator.vibrate) navigator.vibrate(p); },
             saveStorage() { 
                 const data = { history: this.history, profileNames: this.profileNames, manualOffsets: this.manualOffsets };
-                localStorage.setItem('cp_v20_3', JSON.stringify(data)); 
+                localStorage.setItem('cp_v20_2', JSON.stringify(data)); 
             },
             loadData() { 
-                const d = localStorage.getItem('cp_v20_3'); 
+                const d = localStorage.getItem('cp_v20_2'); 
                 if(d) {
                     const data = JSON.parse(d);
                     this.history = data.history || [];
