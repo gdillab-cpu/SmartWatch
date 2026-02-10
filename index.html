@@ -6,9 +6,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#121212">
-    <title>Clock-Dilla v20.6</title>
+    <title>Clock-Dilla v21.0</title>
     <style>
         :root {
+            /* Palette */
             --blue: #0A84FF;
             --green: #30D158; 
             --red: #FF453A;
@@ -17,6 +18,7 @@
             --dark: #1C1C1E;
             --bg: #000000;
             --text: #FFFFFF;
+            --disabled: #333333;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Roboto", sans-serif; }
@@ -82,17 +84,17 @@
         .menu-strip { width: 50px; background: #252525; display: flex; flex-direction: column; align-items: center; justify-content: center; border-left: 1px solid #333; cursor: pointer; }
         .menu-text { writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); white-space: nowrap; color: var(--grey); font-weight: 800; font-size: 14px; letter-spacing: 2px; }
 
-        /* --- FLASH INPUT TRAY (4x4 Grid, No Header) --- */
+        /* --- FLASH INPUT TRAY (Optimized 4x4) --- */
         .flash-tray {
             flex: 1;
             background: #000;
             padding: 10px;
             display: flex;
             flex-direction: column;
-            justify-content: center; /* Center Content */
-            overflow-y: auto;
-            /* Extra Padding to clear Start Button */
-            padding-bottom: 250px; 
+            justify-content: center;
+            overflow: hidden;
+            /* Bottom buffer for Start Button */
+            padding-bottom: 240px; 
             opacity: 0.3; pointer-events: none; transition: opacity 0.2s;
             scrollbar-width: none;
         }
@@ -102,7 +104,7 @@
         .flash-grid {
             display: grid;
             grid-template-columns: 22% 1fr 1fr 1fr; 
-            grid-template-rows: repeat(4, 55px); /* Fixed comfortable height */
+            grid-template-rows: repeat(4, 55px);
             gap: 8px;
             width: 100%;
         }
@@ -125,7 +127,6 @@
         }
         .fg-zone:active { background: #444; transform: scale(0.98); }
         .fg-zone.tee { color: var(--green); border-color: #355; }
-        
         .fg-empty { pointer-events: none; }
 
         /* --- FOOTER --- */
@@ -133,7 +134,8 @@
             position: fixed; bottom: 0; left: 0; right: 0;
             background: rgba(28, 28, 30, 0.98); backdrop-filter: blur(15px);
             padding: 12px; 
-            padding-bottom: max(60px, env(safe-area-inset-bottom)); /* Lifted */
+            /* Lifted 60px + Safe Area */
+            padding-bottom: max(60px, env(safe-area-inset-bottom)); 
             border-top: 1px solid #333; display: flex; z-index: 100;
         }
 
@@ -198,7 +200,9 @@
     <div class="control-panel">
         <div class="cp-split">
             <div class="ref-section">
-                <div class="ref-header"><span>Live Ice Speeds</span></div>
+                <div class="ref-header">
+                    <span id="ref-title">Live Ice Speeds (TEAM)</span>
+                </div>
                 <table class="ref-table" id="ref-table"></table>
             </div>
             <div class="profile-section" id="profile-container">
@@ -217,7 +221,7 @@
         </div>
     </div>
 
-    <!-- FLASH INPUT TRAY (4x4 Grid) -->
+    <!-- FLASH INPUT TRAY -->
     <div class="flash-tray" id="flash-tray">
         <div class="flash-grid" id="flash-grid">
             <!-- JS Populates 4x4 Grid -->
@@ -229,6 +233,7 @@
     </div>
 
     <!-- MODALS -->
+    <!-- Menu -->
     <div class="modal" id="menu-modal" onclick="if(event.target===this) app.closeModals()">
         <div class="side-stack-content">
             <div class="modal-header">MENU</div>
@@ -239,6 +244,7 @@
         </div>
     </div>
 
+    <!-- History View -->
     <div class="modal" id="history-modal" onclick="if(event.target===this) app.closeModals()">
         <div style="width:90%; max-width:400px; background:#222; padding:10px; border-radius:12px; height:80vh; display:flex; flex-direction:column; border:1px solid #444;">
             <div class="modal-header">
@@ -254,6 +260,7 @@
         </div>
     </div>
 
+    <!-- Rename/Offset -->
     <div class="modal" id="rename-modal" onclick="if(event.target===this) app.closeModals()">
         <div class="side-stack-content" style="justify-content:center; background:rgba(20,20,20,0.95);">
             <div class="modal-header">PROFILE SETTINGS</div>
@@ -261,6 +268,8 @@
             <input type="text" id="rename-input" class="rename-input" maxlength="5" />
             <div class="stat-label">TEAM TEE vs PLAYER TEE</div>
             <div class="stat-val" id="calc-offset-display">--</div>
+            <div class="stat-label">CONSISTENCY (± FEET)</div>
+            <div class="stat-val" id="calc-sd-display">--</div>
             <div class="stat-label">MANUAL OFFSET</div>
             <div class="offset-row">
                 <div class="offset-display" id="manual-offset-display">0.00</div>
@@ -277,6 +286,7 @@
         </div>
     </div>
     
+    <!-- Confirm Clear -->
     <div class="modal" id="confirm-modal" onclick="if(event.target===this) app.closeModals()">
         <div class="side-stack-content" style="justify-content:center; background:rgba(50,0,0,0.9);">
             <div class="modal-header" style="color:#fff; font-weight:800;">DELETE ALL?</div>
@@ -293,10 +303,9 @@
         const CONFIG = {
             bhSlope: -35.0, bhIntercept: 167.0,
             hhSlope: -6.7616, hhIntercept: 118.5,
-            minBH: 2.0, maxBH: 6.0, fastLimitBH: 3.65,
+            minBH: 2.0, maxBH: 6.0, fastLimitBH: 3.20,
             minHH: 7.0, maxHH: 22.0, fastLimitHH: 11.70,
 
-            // Zones mapped for lookup
             zones: [
                 {v: 1.0, n: "High", d: 2.5}, {v: 2.0, n: "Mid", d: 7.5}, {v: 3.0, n: "Tight", d: 12.5},
                 {v: 4.0, n: "T 12", d: 15.5}, {v: 5.0, n: "T 8", d: 17.5}, {v: 6.0, n: "T 4", d: 19.5},
@@ -311,7 +320,6 @@
                 {t:'p', id:'2nd'},  {t:'z', n:'T 4'},  {t:'z', n:'TEE'}, {t:'z', n:'B 4'},
                 {t:'p', id:'Lead'}, {t:'e'},          {t:'z', n:'B 8'}, {t:'z', n:'B 12'}
             ],
-            
             refRows: [{v: 11.0, n: "Hack", d: 33.0}, {v: 10.0, n: "B 12", d: 26.5}, {v: 7.0, n: "Tee", d: 21.0}, {v: 4.0, n: "T 12", d: 15.5}, {v: 2.0, n: "Mid", d: 7.5}]
         };
 
@@ -328,10 +336,10 @@
             init() {
                 const ids = ['btn-main','time-bh','pred-bh','card-bh','time-hh','pred-hh','card-hh',
                              'ref-table','flash-tray','flash-grid','full-history-body',
-                             'menu-modal','calib-modal','menu-modal','player-edit-modal','zone-list',
+                             'menu-modal','calib-modal','player-edit-modal','zone-list',
                              'p-skip','p-3rd','p-2nd','p-lead','rename-modal','rename-input','confirm-modal',
                              'profile-container','calc-offset-display','manual-offset-display', 'manual-offset-input',
-                             'history-modal', 'flash-msg'];
+                             'fp-skip','fp-3rd','fp-2nd','fp-lead', 'history-modal', 'calc-sd-display', 'ref-title'];
                 ids.forEach(id => {
                     const el = document.getElementById(id);
                     if(el) this.ui[id] = el;
@@ -366,7 +374,7 @@
                         btn.className = 'fg-player';
                         btn.id = `fg-${item.id}`; 
                         btn.innerText = this.profileNames[item.id];
-                        btn.onclick = () => this.setFlashPlayer(item.id);
+                        btn.onclick = () => this.toggleFlashPlayer(item.id);
                         div.appendChild(btn);
                     } else if (item.t === 'z') {
                         const btn = document.createElement('button');
@@ -455,6 +463,21 @@
                     this.t1 = now; this.split = (this.t1 - this.t0) / 1000;
                     this.ui['card-bh'].classList.remove('running'); this.ui['card-bh'].classList.add('active');
                     this.ui['time-bh'].innerText = this.split.toFixed(2);
+                    
+                    // AUTO-DETECT HOG TO HOG
+                    if (this.split > 6.5) {
+                        this.interval = this.split;
+                        this.split = 0;
+                        
+                        this.ui['time-bh'].innerText = "0.00";
+                        this.ui['time-hh'].innerText = this.interval.toFixed(2);
+                        this.ui['pred-hh'].innerText = "--"; 
+                        this.predictHH(this.interval);
+                        
+                        this.finishShot();
+                        return;
+                    }
+
                     this.predictBH(this.split);
                     if (this.enableHH) {
                         this.state = 'INTERVAL';
@@ -507,19 +530,14 @@
             },
             
             updateFlashPlayers(activeP) {
-                const map = { 'Skip':'fg-Skip', '3rd':'fg-3rd', '2nd':'fg-2nd', 'Lead':'fg-Lead' };
-                // Using IDs in grid (fg-Skip etc)
-                // Note: The Grid IDs are "fg-Skip", but the map here was for the previous layout.
-                // We iterate over the profileNames keys directly.
-                const keys = ['Skip', '3rd', '2nd', 'Lead'];
-                
-                keys.forEach(k => {
-                    const btn = document.getElementById(`fg-${k}`);
-                    if(btn) {
-                        btn.innerText = this.profileNames[k];
-                        btn.className = 'fg-player';
-                        if (activeP === k) btn.className = 'fg-player selected';
-                    }
+                const players = ['Skip', '3rd', '2nd', 'Lead'];
+                players.forEach(key => {
+                     const btn = document.getElementById(`fg-${key}`);
+                     if(btn) {
+                         btn.className = 'fg-player';
+                         btn.innerText = this.profileNames[key];
+                         if (activeP === key) btn.className = 'fg-player selected';
+                     }
                 });
             },
             
@@ -528,6 +546,17 @@
                     this.pendingShot.player = p;
                     this.updateFlashPlayers(p);
                 }
+            },
+            
+            toggleFlashPlayer(p) {
+                 if(this.pendingShot) {
+                     if (this.pendingShot.player === p) {
+                         this.pendingShot.player = '-'; // Deselect
+                     } else {
+                         this.pendingShot.player = p; // Select
+                     }
+                     this.updateFlashPlayers(this.pendingShot.player);
+                 }
             },
             
             commitCalibration(dist) {
@@ -544,7 +573,7 @@
                 this.ui['flash-tray'].classList.remove('active');
                 
                 this.currentProfile = 'TEAM';
-                this.updateProfileUI();
+                this.updateProfile(); // Reverts header to TEAM
             },
 
             startTimer() {
@@ -586,7 +615,7 @@
                 if (this.currentProfile === 'TEAM' || this.currentProfile === '-') return this.iceOffsetBH;
                 const man = this.manualOffsets[this.currentProfile];
                 if (man && man !== 0) {
-                    const teamOffset = this.calcOffsetForProfile('TEAM');
+                    const teamOffset = this.calcSmartStats('BH', 'TEAM').mean;
                     const shift = man * CONFIG.bhSlope; 
                     return teamOffset + shift;
                 }
@@ -690,6 +719,11 @@
                     this.ui[id].innerText = this.profileNames[key];
                     this.ui[id].className = 'p-btn';
                 }
+                
+                // HEADER UPDATE
+                const pLabel = this.currentProfile === 'TEAM' ? 'TEAM' : (this.profileNames[this.currentProfile] || this.currentProfile);
+                this.ui['ref-title'].innerText = `Live Ice Speeds (${pLabel})`;
+                
                 if (this.currentProfile !== 'TEAM') {
                     let activeId = '';
                     if (this.currentProfile === 'Skip') activeId = 'p-skip';
@@ -722,6 +756,14 @@
                     `${this.profileNames[key]} TEE: ${playerTeeTime.toFixed(2)}s\n` +
                     `DIFF: ${sign}${diffTime.toFixed(2)}s`;
                 
+                // NEW: Consistency in Feet
+                // SD(sec) * Slope(ft/sec) = Distance Variance
+                const sdSeconds = pStats.sd;
+                const sdFeet = Math.abs(sdSeconds * CONFIG.bhSlope);
+                
+                this.ui['calc-sd-display'].innerText = 
+                    `±${sdFeet.toFixed(0)} ft`; // Rounded to nearest foot
+
                 const man = this.manualOffsets[key] || 0;
                 this.tempOffset = man; 
                 this.updateOffsetDisplay();
@@ -803,10 +845,10 @@
             vibrate(p) { if(navigator.vibrate) navigator.vibrate(p); },
             saveStorage() { 
                 const data = { history: this.history, profileNames: this.profileNames, manualOffsets: this.manualOffsets };
-                localStorage.setItem('cp_v20_2', JSON.stringify(data)); 
+                localStorage.setItem('cp_v21_0', JSON.stringify(data)); 
             },
             loadData() { 
-                const d = localStorage.getItem('cp_v20_2'); 
+                const d = localStorage.getItem('cp_v21_0'); 
                 if(d) {
                     const data = JSON.parse(d);
                     this.history = data.history || [];
