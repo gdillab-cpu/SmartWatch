@@ -6,9 +6,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#121212">
-    <title>Clock-Dilla v22.2</title>
+    <title>Clock-Dilla v23.1</title>
     <style>
         :root {
+            /* Palette */
             --blue: #0A84FF;
             --green: #30D158; 
             --red: #FF453A;
@@ -18,6 +19,7 @@
             --dark: #1C1C1E;
             --bg: #000000;
             --text: #FFFFFF;
+            --disabled: #333333;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Roboto", sans-serif; }
@@ -114,7 +116,9 @@
         .fg-sweep { background: #222; border-color: #444; color: #666; font-size: 11px; }
         .fg-sweep.selected { background: var(--purple); color: white; border-color: var(--purple); }
 
+        .fg-zone { /* Default Enabled */ }
         .fg-zone.tee { color: var(--green); border-color: #355; }
+        /* Visual feedback for selected zone */
         .fg-zone.selected { background: var(--green); color: black; border-color: var(--green); }
         
         .fg-empty { pointer-events: none; background: transparent; border: none; }
@@ -312,7 +316,7 @@
             minBH: 2.0, maxBH: 6.0, fastLimitBH: 3.20,
             minHH: 7.0, maxHH: 22.0, fastLimitHH: 11.70,
 
-            // Zones
+            // Zones mapped for lookup
             zones: [
                 {v: 1.0, n: "High", d: 2.5}, {v: 2.0, n: "Mid", d: 7.5}, {v: 3.0, n: "Tight", d: 12.5},
                 {v: 4.0, n: "T 12", d: 15.5}, {v: 5.0, n: "T 8", d: 17.5}, {v: 6.0, n: "T 4", d: 19.5},
@@ -332,13 +336,13 @@
             
             refRows: [{v: 11.0, n: "Hack", d: 33.0}, {v: 10.0, n: "B 12", d: 26.5}, {v: 7.0, n: "Tee", d: 21.0}, {v: 4.0, n: "T 12", d: 15.5}, {v: 2.0, n: "Mid", d: 7.5}]
         };
-
+        
         const PLAYER_COLORS = { 'Skip': '#FF453A', '3rd': '#FF9F0A', '2nd': '#0A84FF', 'Lead': '#30D158', '-': '#98989D' };
 
         const app = {
             state: 'IDLE', t0: 0, t1: 0, split: 0, interval: 0, timerInterval: null, animationFrame: null,
             enableBH: true, enableHH: true,
-            history: [], pendingShot: null,
+            history: [], pendingShot: null, currentSweep: null, 
             currentProfile: 'TEAM', iceOffsetBH: 0, iceOffsetHH: 0, 
             profileNames: { 'Skip': 'SKIP', '3rd': '3RD', '2nd': '2ND', 'Lead': 'LEAD' },
             manualOffsets: { 'Skip': 0, '3rd': 0, '2nd': 0, 'Lead': 0 },
@@ -391,14 +395,14 @@
                         div.appendChild(btn);
                     } else if (item.t === 'z') {
                         const btn = document.createElement('button');
-                        btn.className = 'fg-btn fg-zone';
+                        btn.className = 'fg-btn fg-zone'; // Default Enabled
                         btn.id = `fz-${item.n.replace(/\s+/g, '')}`;
                         if(item.n === 'TEE') btn.classList.add('tee');
                         btn.innerText = item.n;
                         
                         const zoneDef = CONFIG.zones.find(z => z.n === item.n);
                         const dist = zoneDef ? zoneDef.d : 0;
-                        btn.onclick = () => this.handleFlashZone(dist, btn.id);
+                        btn.onclick = () => this.handleZoneSelect(dist, btn.id); // New handler
                         div.appendChild(btn);
                     } else if (item.t === 's') {
                         const btn = document.createElement('button');
@@ -408,13 +412,73 @@
                         
                         const sweepDef = CONFIG.sweeping.find(s => s.n === item.n);
                         const val = sweepDef ? sweepDef.v : 0;
-                        btn.onclick = () => this.handleFlashSweep(val, btn.id);
+                        btn.onclick = () => this.toggleSweep(val, btn.id);
                         div.appendChild(btn);
                     } else {
                         div.className = 'fg-empty';
                     }
                     container.appendChild(div.firstChild || div);
                 });
+            },
+            
+            toggleSweep(val, btnId) {
+                this.currentSweep = val;
+                // Radio UI
+                const all = document.querySelectorAll('.fg-sweep');
+                all.forEach(b => b.classList.remove('selected'));
+                
+                const active = document.getElementById(btnId);
+                if(active) active.classList.add('selected');
+                
+                // If pending shot exists, update it & check commit
+                if (this.pendingShot) {
+                    this.pendingShot.sweep = val;
+                    this.checkCommit();
+                }
+            },
+            
+            // Handle Zone Taps -> Stores Actual, Checks Commit
+            handleZoneSelect(dist, btnId) {
+                if(!this.pendingShot) return;
+                
+                // Visual Selection
+                const all = document.querySelectorAll('.fg-zone');
+                all.forEach(b => b.classList.remove('selected'));
+                const active = document.getElementById(btnId);
+                if(active) active.classList.add('selected');
+
+                this.pendingShot.actual = dist;
+                this.checkCommit();
+            },
+            
+            // Commit if requirements met
+            checkCommit() {
+                if(!this.pendingShot) return;
+                
+                const isHHOnly = (this.pendingShot.bh <= 0.1);
+                
+                if (isHHOnly) {
+                     // H-H Only: Requires Zone only
+                     if (this.pendingShot.actual !== null) this.commitShot();
+                } else {
+                     // B-H Shot: Requires Zone AND Sweep (sweep can be 0, but not null)
+                     if (this.pendingShot.actual !== null && this.pendingShot.sweep !== null) {
+                         this.commitShot();
+                     }
+                }
+            },
+            
+            commitShot() {
+                // FORCE ENABLE
+                if(this.pendingShot.bh > CONFIG.minBH) this.pendingShot.useBH = true;
+                if(this.pendingShot.hh > CONFIG.minHH) this.pendingShot.useHH = true;
+
+                this.saveShot(this.pendingShot); 
+                this.pendingShot = null;
+                this.ui['flash-tray'].classList.remove('active');
+                
+                this.currentProfile = 'TEAM';
+                this.updateProfile(); 
             },
 
             setupProfileBtn(id, key) {
@@ -459,8 +523,7 @@
                 const now = Date.now();
                 if (this.state === 'IDLE' || this.state === 'FINISHED') {
                     if(this.pendingShot) {
-                        // Ignore any pending if starting new
-                        this.saveShot(this.pendingShot); 
+                        this.saveShot(this.pendingShot); // Auto save raw
                         this.pendingShot = null;
                     }
                     
@@ -551,93 +614,66 @@
                 
                 if (!validBH && !validHH) return;
                 
-                // Defaults
                 const defaultUseBH = validBH && (this.split <= CONFIG.fastLimitBH);
                 const defaultUseHH = validHH && (this.interval <= CONFIG.fastLimitHH);
                 
                 let p = this.currentProfile === 'TEAM' ? '-' : this.currentProfile;
                 
+                // RESET SWEEP to Null
+                this.currentSweep = null;
+                const allSweeps = document.querySelectorAll('.fg-sweep');
+                allSweeps.forEach(b => b.classList.remove('selected'));
+                // RESET ZONES
+                const allZones = document.querySelectorAll('.fg-zone');
+                allZones.forEach(z => z.classList.remove('selected'));
+
+                // Handle H-H Only Case (Disable Sweep UI for clarity)
+                const isHHOnly = validBH === false || this.split <= 0.1;
+                const sweeps = document.querySelectorAll('.fg-sweep');
+                if (isHHOnly) sweeps.forEach(s => s.classList.add('disabled'));
+                else sweeps.forEach(s => s.classList.remove('disabled'));
+
                 this.pendingShot = {
                     id: Date.now(), player: p,
                     bh: validBH ? this.split : 0, hh: validHH ? this.interval : 0,
-                    actual: null, sweep: null, // REQUIRE SELECTION
+                    actual: null, sweep: null, // Req selection
                     useBH: defaultUseBH, useHH: defaultUseHH,
                     rawBH: validBH ? (CONFIG.bhSlope * this.split) + CONFIG.bhIntercept : 0,
                     rawHH: validHH ? (CONFIG.hhSlope * this.interval) + CONFIG.hhIntercept : 0
                 };
                 
-                this.updateFlashUI();
+                this.updateFlashPlayers(this.pendingShot.player);
                 this.ui['flash-tray'].classList.add('active');
             },
             
-            // --- NEW: Order Agnostic Logic ---
-            handleFlashZone(dist, btnId) {
-                if(!this.pendingShot) return;
-                this.pendingShot.actual = dist;
-                this.updateFlashUI();
-                this.checkCommit();
+            updateFlashPlayers(activeP) {
+                const keys = ['Skip', '3rd', '2nd', 'Lead'];
+                keys.forEach(key => {
+                     const btn = document.getElementById(`fg-${key}`);
+                     if(btn) {
+                         btn.className = 'fg-btn fg-player';
+                         btn.innerText = this.profileNames[key];
+                         if (activeP === key) btn.className = 'fg-btn fg-player selected';
+                     }
+                });
             },
             
-            handleFlashSweep(val, btnId) {
-                if(!this.pendingShot) return;
-                this.pendingShot.sweep = val;
-                this.updateFlashUI();
-                this.checkCommit();
+            setFlashPlayer(p) {
+                if(this.pendingShot) {
+                    this.pendingShot.player = p;
+                    this.updateFlashPlayers(p);
+                }
             },
             
             toggleFlashPlayer(p) {
                  if(this.pendingShot) {
-                     this.pendingShot.player = (this.pendingShot.player === p) ? '-' : p;
-                     this.updateFlashUI();
-                 }
-            },
-            
-            updateFlashUI() {
-                if(!this.pendingShot) return;
-                const s = this.pendingShot;
-                
-                // Update Players
-                const keys = ['Skip', '3rd', '2nd', 'Lead'];
-                keys.forEach(k => {
-                     const btn = document.getElementById(`fg-${k}`);
-                     if(btn) {
-                         btn.className = 'fg-btn fg-player';
-                         btn.innerText = this.profileNames[k];
-                         if (s.player === k) btn.className += ' selected';
+                     if (this.pendingShot.player === p) {
+                         this.pendingShot.player = '-'; 
+                     } else {
+                         this.pendingShot.player = p; 
                      }
-                });
-                
-                // Update Zones
-                const zoneBtns = document.querySelectorAll('.fg-zone');
-                zoneBtns.forEach(btn => {
-                    const dist = CONFIG.zones.find(z => z.n === btn.innerText).d;
-                    btn.className = 'fg-btn fg-zone';
-                    if (btn.innerText === 'TEE') btn.classList.add('tee');
-                    if (s.actual === dist) btn.classList.add('selected'); // Visual feedback
-                });
-                
-                // Update Sweeps
-                const sweepBtns = document.querySelectorAll('.fg-sweep');
-                sweepBtns.forEach(btn => {
-                    const val = CONFIG.sweeping.find(sw => sw.n === btn.innerText).v;
-                    btn.className = 'fg-btn fg-sweep';
-                    if (s.sweep === val) btn.classList.add('selected');
-                });
-            },
-            
-            checkCommit() {
-                if(this.pendingShot && this.pendingShot.actual !== null && this.pendingShot.sweep !== null) {
-                    // Commit
-                    if(this.pendingShot.bh > CONFIG.minBH) this.pendingShot.useBH = true;
-                    if(this.pendingShot.hh > CONFIG.minHH) this.pendingShot.useHH = true;
-
-                    this.saveShot(this.pendingShot); 
-                    this.pendingShot = null;
-                    this.ui['flash-tray'].classList.remove('active');
-                    
-                    this.currentProfile = 'TEAM';
-                    this.updateProfile();
-                }
+                     this.updateFlashPlayers(this.pendingShot.player);
+                 }
             },
 
             startTimer() {
@@ -657,7 +693,6 @@
                             this.ui['pred-bh'].innerText = "--"; 
                             this.ui['card-bh'].classList.remove('running');
                             this.ui['card-bh'].classList.add('disabled');
-                            
                             this.ui['card-hh'].classList.add('running');
                             this.ui['btn-main'].innerText = "HOG 2";
                         }
@@ -736,6 +771,7 @@
                 shot.fixedOffsetHH = this.iceOffsetHH;
                 this.history.unshift(shot);
                 if(this.history.length > 60) this.history.pop();
+                
                 this.saveStorage(); 
                 this.updateSmartCalibration(); 
             },
@@ -750,6 +786,7 @@
                     this.iceOffsetBH = stats.mean; 
                     this.statsBH = stats; 
                 }
+
                 // HH
                 const hhStats = this.calcSmartStats('HH', 'TEAM');
                 this.iceOffsetHH = hhStats.mean;
@@ -765,32 +802,25 @@
                 this.history.forEach(s => {
                      if(s.actual === null) return;
                      if(profile !== 'TEAM' && s.player !== profile) return;
-                     
                      if (type === 'BH' && s.useBH && s.bh > 0 && s.actual <= 26.5) {
-                         const normActual = s.actual - (s.sweep || 0);
+                         const normActual = s.actual - (s.sweep || 0); // Normalized
                          errors.push({ id: s.id, val: normActual - s.rawBH });
                      } else if (type === 'HH' && s.useHH && s.hh > 0) {
                          errors.push({ id: s.id, val: s.actual - s.rawHH });
                      }
                 });
-                
                 if(errors.length === 0) return { mean: 0, sd: 0, outlierIds: outliers };
-                
                 const sum = errors.reduce((a,b) => a+b.val, 0);
                 const mean = sum / errors.length;
-                
                 if (errors.length < 4) return { mean, sd: 0, outlierIds: outliers }; 
-                
                 const sqDiff = errors.map(e => Math.pow(e.val - mean, 2));
                 const avgSq = sqDiff.reduce((a,b) => a+b, 0) / errors.length;
                 const sd = Math.sqrt(avgSq);
-                
                 const clean = errors.filter(e => {
                     const isOut = Math.abs(e.val - mean) > (2 * sd);
                     if(isOut) outliers.add(e.id);
                     return !isOut;
                 });
-                
                 const cleanSum = clean.reduce((a,b) => a+b.val, 0);
                 const finalMean = clean.length > 0 ? cleanSum / clean.length : mean;
                 return { mean: finalMean, sd: sd, outlierIds: outliers };
@@ -802,11 +832,13 @@
             updateProfileUI() {
                 const idMap = { 'p-skip': 'Skip', 'p-3rd': '3rd', 'p-2nd': '2nd', 'p-lead': 'Lead' };
                 for (const [id, key] of Object.entries(idMap)) {
-                    this.ui[id].innerText = this.profileNames[key];
-                    this.ui[id].className = 'p-btn';
+                    if(this.ui[id]) {
+                        this.ui[id].innerText = this.profileNames[key];
+                        this.ui[id].className = 'p-btn';
+                    }
                 }
                 const pLabel = this.currentProfile === 'TEAM' ? 'TEAM' : (this.profileNames[this.currentProfile] || this.currentProfile);
-                this.ui['ref-title'].innerText = `Live Ice Speeds (${pLabel})`;
+                if(this.ui['ref-header']) this.ui['ref-header'].innerText = `Live Ice Speeds (${pLabel})`;
                 if (this.currentProfile !== 'TEAM') {
                     let activeId = '';
                     if (this.currentProfile === 'Skip') activeId = 'p-skip';
@@ -864,6 +896,19 @@
                 cvs.width = rect.width * dpr; cvs.height = rect.height * dpr;
                 ctx.scale(dpr, dpr);
                 this.ui['graph-title'].innerText = type === 'BH' ? 'Back-to-Hog' : 'Hog-to-Hog';
+                
+                // Legend
+                const legend = this.ui['graph-legend'];
+                legend.innerHTML = '';
+                const pKeys = ['Skip', '3rd', '2nd', 'Lead'];
+                const colors = [PLAYER_COLORS['Skip'], PLAYER_COLORS['3rd'], PLAYER_COLORS['2nd'], PLAYER_COLORS['Lead']];
+                pKeys.forEach((key, i) => {
+                     const item = document.createElement('div');
+                     item.className = 'legend-item';
+                     item.innerHTML = `<span class="dot" style="background:${colors[i]}"></span>${this.profileNames[key]}`;
+                     legend.appendChild(item);
+                });
+                
                 this.drawGraph(type, ctx, rect.width, rect.height);
             },
             drawGraph(type, ctx, w, h) {
@@ -873,6 +918,7 @@
                 const mapX = (val) => ((val - xMin) / (xMax - xMin)) * w;
                 const mapY = (val) => h - ((val - yMin) / (yMax - yMin)) * h;
                 
+                // Grid
                 ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.fillStyle = '#666'; ctx.font = "10px sans-serif";
                 ctx.beginPath();
                 for(let d=5; d<=30; d+=5) { let y = mapY(d); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.fillText(d+'ft', 2, y-2); }
@@ -881,6 +927,7 @@
                 ctx.textAlign = "center";
                 for(let t=xMin; t<=xMax; t+=(type==='BH'?0.2:1.0)) { let x = mapX(t); ctx.fillText(t.toFixed(1), x, h-2); }
 
+                // Team Line
                 let slope, intercept, offset;
                 if (type === 'BH') { slope = CONFIG.bhSlope; intercept = CONFIG.bhIntercept; offset = this.calcSmartStats('BH', 'TEAM').mean; }
                 else { slope = CONFIG.hhSlope; intercept = CONFIG.hhIntercept; offset = this.statsHH.mean; }
@@ -890,16 +937,19 @@
                 ctx.moveTo(0, mapY(y1)); ctx.lineTo(w, mapY(y2));
                 ctx.stroke();
                 
+                // Points
                 const colors = { 'Skip': '#FF453A', '3rd': '#FF9F0A', '2nd': '#0A84FF', 'Lead': '#30D158', '-': '#98989D' };
                 this.history.forEach(s => {
                     if (s.actual === null) return;
                     let valX = type === 'BH' ? s.bh : s.hh;
                     if (valX < xMin || valX > xMax) return;
                     
-                    let color = '#98989D';
-                    for(let k in this.profileNames) {
-                        if(this.profileNames[k] === s.player) color = PLAYER_COLORS[k];
-                    }
+                    let pKey = s.player;
+                    if (pKey === '-' || pKey === 'TEAM') pKey = '-';
+                    // Re-match logic: if s.player stores the NAME, reverse lookup ID
+                    // if s.player stores ID, direct.
+                    // We store ID ('Skip', '3rd') in s.player.
+                    let color = colors[pKey] || '#98989D';
 
                     // Y Value: Normalized for BH, Actual for HH
                     let valY = s.actual;
@@ -950,14 +1000,7 @@
                 if (s.actual === null) return '-';
                 let label = "?"; let minDiff = 99;
                 CONFIG.zones.forEach(z => { if (Math.abs(z.d - s.actual) < minDiff) { minDiff = Math.abs(z.d - s.actual); label = z.n; } });
-                
-                // Append sweep
-                let sw = "";
-                if(s.sweep === 3) sw = " (L)";
-                else if(s.sweep === 6) sw = " (M)";
-                else if(s.sweep === 9) sw = " (H)";
-                
-                return label + sw;
+                return label;
             },
             renderFullHistory() {
                 const tbody = this.ui['full-history-body']; tbody.innerHTML = '';
@@ -972,18 +1015,20 @@
                     
                     if (s.useBH && this.statsBH.outlierIds && this.statsBH.outlierIds.has(s.id)) bhClass = 'hm-outlier';
                     if (s.useHH && this.statsHH.outlierIds && this.statsHH.outlierIds.has(s.id)) hhClass = 'hm-outlier';
+                    
+                    let swVal = s.sweep ? (s.sweep === 3 ? 'L' : s.sweep === 6 ? 'M' : s.sweep === 9 ? 'H' : 'NA') : 'NA';
 
-                    tr.innerHTML = `<td>${pName}</td><td class="${bhClass}">${s.bh.toFixed(2)}</td><td class="${hhClass}">${s.hh.toFixed(2)}</td><td>${this.getResText(s)}</td>`;
+                    tr.innerHTML = `<td>${pName}</td><td class="${bhClass}">${s.bh.toFixed(2)}</td><td class="${hhClass}">${s.hh.toFixed(2)}</td><td>${this.getResText(s)}</td><td style="font-size:10px; color:#999;">${swVal}</td>`;
                     tbody.appendChild(tr);
                 });
             },
             vibrate(p) { if(navigator.vibrate) navigator.vibrate(p); },
             saveStorage() { 
                 const data = { history: this.history, profileNames: this.profileNames, manualOffsets: this.manualOffsets };
-                localStorage.setItem('cp_v21_2', JSON.stringify(data)); 
+                localStorage.setItem('cp_v23_1', JSON.stringify(data)); 
             },
             loadData() { 
-                const d = localStorage.getItem('cp_v21_2'); 
+                const d = localStorage.getItem('cp_v23_1'); 
                 if(d) {
                     const data = JSON.parse(d);
                     this.history = data.history || [];
@@ -991,7 +1036,6 @@
                     if(data.manualOffsets) this.manualOffsets = data.manualOffsets;
                 }
             },
-            // Legacy stubs
             toggleHistoryUse: function(){}, openPlayerEdit: function(){}, openModal: function(){}, calibrate: function(){}
         };
         app.init();
