@@ -6,19 +6,18 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#121212">
-    <title>Clock-Dilla v21.2</title>
+    <title>Clock-Dilla v21.4</title>
     <style>
         :root {
-            /* Palette */
             --blue: #0A84FF;
             --green: #30D158; 
             --red: #FF453A;
             --orange: #FF9F0A;
+            --purple: #BF5AF2;
             --grey: #98989D;
             --dark: #1C1C1E;
             --bg: #000000;
             --text: #FFFFFF;
-            --disabled: #333333;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Roboto", sans-serif; }
@@ -95,9 +94,7 @@
             overflow: hidden;
             /* 300px Padding ensures bottom row clears Start Button */
             padding-bottom: 240px; 
-            opacity: 0.3; 
-            pointer-events: none;
-            transition: opacity 0.2s;
+            opacity: 0.3; pointer-events: none; transition: opacity 0.2s;
             scrollbar-width: none;
         }
         .flash-tray::-webkit-scrollbar { display: none; }
@@ -111,7 +108,6 @@
             width: 100%;
         }
 
-        /* Player Button in Flash Grid */
         .fg-player {
             background: #252525; border: 1px solid #555; border-radius: 8px; 
             color: #888; font-weight: 800; font-size: 11px; cursor: pointer; 
@@ -120,7 +116,6 @@
         }
         .fg-player.selected { background: var(--blue); color: white; border-color: var(--blue); }
 
-        /* Zone Button in Flash Grid */
         .fg-zone {
             background: #1A1A1A; border: 1px solid #333; border-radius: 8px;
             color: #ccc; font-weight: 700; font-size: 13px; cursor: pointer;
@@ -136,7 +131,6 @@
             position: fixed; bottom: 0; left: 0; right: 0;
             background: rgba(28, 28, 30, 0.98); backdrop-filter: blur(15px);
             padding: 12px; 
-            /* Lifted 60px + Safe Area */
             padding-bottom: max(60px, env(safe-area-inset-bottom)); 
             border-top: 1px solid #333; display: flex; z-index: 100;
         }
@@ -159,12 +153,12 @@
         .z-tee { color: var(--green); border-color: var(--green); }
         .menu-export { color: var(--blue) !important; border-color: var(--blue) !important; margin-top: auto; border: 1px solid #333; }
         .menu-clear { color: var(--red) !important; border-color: var(--red) !important; border: 1px solid #333; }
+        .menu-purple { color: var(--purple) !important; border-color: var(--purple) !important; border: 1px solid #333; }
         
         .rename-input { width: 100%; background: #333; border: 1px solid #555; color: white; padding: 10px; border-radius: 6px; font-size: 16px; text-transform: uppercase; text-align: center; margin-bottom: 10px; outline: none; }
         .stat-label { font-size: 10px; color: #888; text-align:center; margin-top:10px; margin-bottom: 4px; }
         .stat-val { font-size: 14px; color: #fff; text-align:center; font-family:monospace; margin-bottom:5px; font-weight:700; white-space: pre-line; }
         
-        /* Steppers */
         .stepper-container { display: flex; justify-content: center; gap: 8px; margin-bottom: 15px; }
         .step-btn { background: #252525; border: 1px solid #444; color: #ccc; width: 45px; height: 35px; border-radius: 6px; font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         .step-btn:active { background: #444; color: #fff; }
@@ -180,6 +174,12 @@
         .hm-ignored { color: #555; }
         .hm-active { color: #fff; }
         .hm-outlier { color: var(--orange); }
+
+        /* Graph Canvas */
+        #graph-canvas { background: #111; width: 100%; height: 300px; border: 1px solid #333; border-radius: 8px; }
+        .graph-legend { display: flex; justify-content: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+        .legend-item { font-size: 10px; font-weight: 700; display: flex; align-items: center; gap: 4px; color: #ccc; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
 
     </style>
 </head>
@@ -225,8 +225,9 @@
 
     <!-- FLASH INPUT TRAY -->
     <div class="flash-tray" id="flash-tray">
-        <!-- Grid -->
-        <div class="flash-grid" id="flash-grid"></div>
+        <div class="flash-grid" id="flash-grid">
+            <!-- JS Populates 4x4 Grid -->
+        </div>
     </div>
 
     <div class="controls-area">
@@ -239,6 +240,8 @@
         <div class="side-stack-content">
             <div class="modal-header">MENU</div>
             <button class="zone-btn" onclick="app.openHistoryView()">View History</button>
+            <button class="zone-btn menu-purple" onclick="app.openGraph('BH')">Graph B-H</button>
+            <button class="zone-btn menu-purple" onclick="app.openGraph('HH')">Graph H-H</button>
             <button class="zone-btn menu-export" onclick="app.exportData()">Export CSV</button>
             <button class="zone-btn menu-clear" onclick="app.confirmClear()">Clear All</button>
             <button class="zone-btn" style="color:#666; margin-top: auto;" onclick="app.closeModals()">Cancel</button>
@@ -287,6 +290,16 @@
         </div>
     </div>
     
+    <!-- Graph Modal -->
+    <div class="modal" id="graph-modal" onclick="if(event.target===this) app.closeModals()">
+        <div style="width:95%; max-width:400px; background:#222; padding:15px; border-radius:16px; border:1px solid #444;">
+            <div class="modal-header" id="graph-title">DATA VIZ</div>
+            <canvas id="graph-canvas"></canvas>
+            <div class="graph-legend" id="graph-legend"></div>
+            <button class="zone-btn" style="margin-top:15px; background:transparent; color:#666;" onclick="app.closeModals()">CLOSE</button>
+        </div>
+    </div>
+    
     <!-- Confirm Clear -->
     <div class="modal" id="confirm-modal" onclick="if(event.target===this) app.closeModals()">
         <div class="side-stack-content" style="justify-content:center; background:rgba(50,0,0,0.9);">
@@ -307,7 +320,6 @@
             minBH: 2.0, maxBH: 6.0, fastLimitBH: 3.20,
             minHH: 7.0, maxHH: 22.0, fastLimitHH: 11.70,
 
-            // Zones
             zones: [
                 {v: 1.0, n: "High", d: 2.5}, {v: 2.0, n: "Mid", d: 7.5}, {v: 3.0, n: "Tight", d: 12.5},
                 {v: 4.0, n: "T 12", d: 15.5}, {v: 5.0, n: "T 8", d: 17.5}, {v: 6.0, n: "T 4", d: 19.5},
@@ -324,6 +336,8 @@
             ],
             refRows: [{v: 11.0, n: "Hack", d: 33.0}, {v: 10.0, n: "B 12", d: 26.5}, {v: 7.0, n: "Tee", d: 21.0}, {v: 4.0, n: "T 12", d: 15.5}, {v: 2.0, n: "Mid", d: 7.5}]
         };
+        
+        const PLAYER_COLORS = { 'Skip': '#FF453A', '3rd': '#FF9F0A', '2nd': '#0A84FF', 'Lead': '#30D158', '-': '#98989D' };
 
         const app = {
             state: 'IDLE', t0: 0, t1: 0, split: 0, interval: 0, timerInterval: null, animationFrame: null,
@@ -341,7 +355,8 @@
                              'menu-modal','calib-modal','player-edit-modal','zone-list',
                              'p-skip','p-3rd','p-2nd','p-lead','rename-modal','rename-input','confirm-modal',
                              'profile-container','calc-offset-display','manual-offset-display', 'manual-offset-input',
-                             'history-modal', 'calc-sd-display', 'ref-title', 'flash-msg'];
+                             'fp-skip','fp-3rd','fp-2nd','fp-lead', 'history-modal', 'calc-sd-display', 'ref-title',
+                             'graph-modal', 'graph-canvas', 'graph-title', 'graph-legend'];
                 ids.forEach(id => {
                     const el = document.getElementById(id);
                     if(el) this.ui[id] = el;
@@ -470,7 +485,7 @@
                     if (this.split > 5.5) {
                         this.interval = this.split;
                         this.split = 0;
-                        this.t1 = this.t0; // Shift start
+                        this.t1 = this.t0; 
                         this.t0 = 0;
                         this.state = 'INTERVAL';
                         
@@ -478,11 +493,9 @@
                         this.ui['pred-bh'].innerText = "--"; 
                         this.ui['card-bh'].classList.remove('running');
                         this.ui['card-bh'].classList.add('disabled');
-
+                        
                         this.ui['card-hh'].classList.add('running');
                         this.ui['btn-main'].innerText = "HOG 2";
-                        
-                        return;
                     }
 
                     this.predictBH(this.split);
@@ -501,19 +514,19 @@
                     this.ui['time-hh'].innerText = this.interval.toFixed(2);
                     this.predictHH(this.interval);
                     
-                    // TIMEOUT LOGIC
+                    // TIMEOUT
                     if (this.interval > 19.0) {
                         this.stopTimer();
                         this.ui['time-hh'].innerText = "0.00";
                         if (this.split > 0) {
-                            this.interval = 0;
+                            this.interval = 0; 
                             this.finishShot();
                         } else {
                             this.reset();
                         }
                         return;
                     }
-                    
+
                     this.finishShot();
                     this.vibrate([10,30]);
                 }
@@ -540,7 +553,6 @@
                     id: Date.now(), player: p,
                     bh: validBH ? this.split : 0, hh: validHH ? this.interval : 0,
                     actual: null, 
-                    // Initially use "default", but committing result will force True
                     useBH: defaultUseBH, useHH: defaultUseHH,
                     rawBH: validBH ? (CONFIG.bhSlope * this.split) + CONFIG.bhIntercept : 0,
                     rawHH: validHH ? (CONFIG.hhSlope * this.interval) + CONFIG.hhIntercept : 0
@@ -551,11 +563,8 @@
             },
             
             updateFlashPlayers(activeP) {
-                const map = { 'Skip':'fg-Skip', '3rd':'fg-3rd', '2nd':'fg-2nd', 'Lead':'fg-Lead' };
-                // Using IDs in grid
-                const players = ['Skip', '3rd', '2nd', 'Lead'];
-                
-                players.forEach(key => {
+                const keys = ['Skip', '3rd', '2nd', 'Lead'];
+                keys.forEach(key => {
                      const btn = document.getElementById(`fg-${key}`);
                      if(btn) {
                          btn.className = 'fg-player';
@@ -563,9 +572,6 @@
                          if (activeP === key) btn.className = 'fg-player selected';
                      }
                 });
-                
-                const pName = (activeP === '-' || activeP === 'TEAM') ? "TEAM" : this.profileNames[activeP];
-                this.ui['flash-msg'].innerText = `SELECT RESULT FOR ${pName}`;
             },
             
             setFlashPlayer(p) {
@@ -600,7 +606,7 @@
                 this.ui['flash-tray'].classList.remove('active');
                 
                 this.currentProfile = 'TEAM';
-                this.updateProfile();
+                this.updateProfile(); // Reverts header to TEAM
             },
 
             startTimer() {
@@ -612,7 +618,7 @@
                         const curSplit = (now - this.t0)/1000;
                         this.ui['time-bh'].innerText = curSplit.toFixed(2);
                         
-                        // AUTO-HOG Logic (Live)
+                        // AUTO-HOG Logic
                         if (curSplit > 5.5) {
                             this.t1 = this.t0; 
                             this.t0 = 0;
@@ -672,7 +678,7 @@
                 if (this.currentProfile === 'TEAM' || this.currentProfile === '-') return this.iceOffsetBH;
                 const man = this.manualOffsets[this.currentProfile];
                 if (man && man !== 0) {
-                    const teamOffset = this.calcSmartStats('BH', 'TEAM').mean;
+                    const teamOffset = this.calcOffsetForProfile('TEAM');
                     const shift = man * CONFIG.bhSlope; 
                     return teamOffset + shift;
                 }
@@ -845,6 +851,75 @@
                 this.renderFullHistory();
                 this.ui['history-modal'].style.display = 'flex';
             },
+            // GRAPH
+            openGraph(type) {
+                this.ui['menu-modal'].style.display = 'none';
+                this.ui['graph-modal'].style.display = 'flex';
+                const cvs = this.ui['graph-canvas'];
+                const ctx = cvs.getContext('2d');
+                const dpr = window.devicePixelRatio || 1;
+                const rect = cvs.getBoundingClientRect();
+                cvs.width = rect.width * dpr; cvs.height = rect.height * dpr;
+                ctx.scale(dpr, dpr);
+                this.ui['graph-title'].innerText = type === 'BH' ? 'Back-to-Hog' : 'Hog-to-Hog';
+                this.drawGraph(type, ctx, rect.width, rect.height);
+            },
+            drawGraph(type, ctx, w, h) {
+                ctx.clearRect(0, 0, w, h);
+                const xMin = type === 'BH' ? 3.5 : 13.0; const xMax = type === 'BH' ? 4.6 : 17.5;
+                const yMin = 5; const yMax = 30;
+                const mapX = (val) => ((val - xMin) / (xMax - xMin)) * w;
+                const mapY = (val) => h - ((val - yMin) / (yMax - yMin)) * h;
+                
+                // Grid & Labels
+                ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.fillStyle = '#666'; ctx.font = "10px sans-serif";
+                ctx.beginPath();
+                for(let d=5; d<=30; d+=5) { 
+                    let y = mapY(d); ctx.moveTo(0, y); ctx.lineTo(w, y); 
+                    ctx.fillText(d+'ft', 2, y-2);
+                }
+                ctx.stroke();
+                
+                // Axis Labels X
+                ctx.textAlign = "center";
+                for(let t=xMin; t<=xMax; t+=(type==='BH'?0.2:1.0)) {
+                     let x = mapX(t);
+                     ctx.fillText(t.toFixed(1), x, h-2);
+                }
+
+                // Team Line
+                let slope, intercept, offset;
+                if (type === 'BH') { slope = CONFIG.bhSlope; intercept = CONFIG.bhIntercept; offset = this.calcSmartStats('BH', 'TEAM').mean; }
+                else { slope = CONFIG.hhSlope; intercept = CONFIG.hhIntercept; offset = this.statsHH.mean; }
+                ctx.strokeStyle = 'cyan'; ctx.lineWidth = 2; ctx.beginPath();
+                let y1 = (slope * xMin) + intercept + offset;
+                let y2 = (slope * xMax) + intercept + offset;
+                ctx.moveTo(0, mapY(y1)); ctx.lineTo(w, mapY(y2));
+                ctx.stroke();
+                
+                // Points
+                const colors = { 'Skip': '#FF453A', '3rd': '#FF9F0A', '2nd': '#0A84FF', 'Lead': '#30D158', '-': '#98989D' };
+                this.history.forEach(s => {
+                    if (s.actual === null) return;
+                    let valX = type === 'BH' ? s.bh : s.hh;
+                    if (valX < xMin || valX > xMax) return;
+                    // Map ID to color
+                    let pKey = s.player === '-' ? '-' : 
+                               (s.player === this.profileNames['Skip'] ? 'Skip' :
+                                s.player === this.profileNames['3rd'] ? '3rd' :
+                                s.player === this.profileNames['2nd'] ? '2nd' : 'Lead');
+                                
+                    // Fallback if renaming confuses map: just check if value exists in colors
+                    // or if s.player matches profileNames values
+                    let color = '#98989D';
+                    for(let k in this.profileNames) {
+                        if(this.profileNames[k] === s.player) color = PLAYER_COLORS[k];
+                    }
+
+                    ctx.fillStyle = color;
+                    ctx.beginPath(); ctx.arc(mapX(valX), mapY(s.actual), 4, 0, 2*Math.PI); ctx.fill();
+                });
+            },
             confirmClear() { this.ui['confirm-modal'].style.display = 'flex'; },
             executeClear() {
                 this.history = []; this.iceOffsetBH = 0; this.iceOffsetHH = 0;
@@ -857,6 +932,7 @@
                 if(this.ui['rename-modal']) this.ui['rename-modal'].style.display = 'none';
                 if(this.ui['confirm-modal']) this.ui['confirm-modal'].style.display = 'none';
                 if(this.ui['history-modal']) this.ui['history-modal'].style.display = 'none';
+                if(this.ui['graph-modal']) this.ui['graph-modal'].style.display = 'none';
                 this.editingId = null; 
                 window.scrollTo(0,0);
             },
@@ -905,10 +981,10 @@
             vibrate(p) { if(navigator.vibrate) navigator.vibrate(p); },
             saveStorage() { 
                 const data = { history: this.history, profileNames: this.profileNames, manualOffsets: this.manualOffsets };
-                localStorage.setItem('cp_v21_0', JSON.stringify(data)); 
+                localStorage.setItem('cp_v21_1', JSON.stringify(data)); 
             },
             loadData() { 
-                const d = localStorage.getItem('cp_v21_0'); 
+                const d = localStorage.getItem('cp_v21_1'); 
                 if(d) {
                     const data = JSON.parse(d);
                     this.history = data.history || [];
