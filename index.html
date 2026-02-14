@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#121212">
-    <title>Clock-Dilla v23.2</title>
+    <title>Clock-Dilla v24.5</title>
     <style>
         :root {
             /* Palette */
@@ -15,6 +15,7 @@
             --red: #FF453A;
             --orange: #FF9F0A;
             --purple: #BF5AF2;
+            --yellow: #FFD60A;
             --grey: #98989D;
             --dark: #1C1C1E;
             --bg: #000000;
@@ -36,27 +37,54 @@
             background: #121212;
             padding: max(10px, env(safe-area-inset-top)) 10px 10px 10px;
             border-bottom: 1px solid #333;
-            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+            display: flex; gap: 8px;
             z-index: 50; flex-shrink: 0;
+            height: 160px;
         }
 
-        .timer-card {
-            background: #222; border-radius: 14px; padding: 10px 8px;
-            text-align: center; border: 2px solid transparent; transition: 0.2s;
-            cursor: pointer; display: flex; flex-direction: column; justify-content: center; min-height: 125px; 
+        .timer-display {
+            flex: 1;
+            background: #222; border-radius: 16px;
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* 2 Columns Only */
+            align-items: center;
+            padding: 0 10px;
+            position: relative;
         }
-        .timer-card.active { border-color: var(--blue); background: #2A2A2A; }
-        .timer-card.running { border-color: var(--green); background: #2A2A2A; }
-        .timer-card.disabled { opacity: 0.3; border-color: #444; }
+        
+        /* Vertical Divider */
+        .timer-display::after {
+            content: ''; position: absolute; left: 50%; top: 15%; bottom: 15%;
+            width: 1px; background: #333;
+        }
 
-        .t-label { font-size: 11px; color: var(--grey); text-transform: uppercase; font-weight: 700; margin-bottom: 4px; }
-        .t-time { font-size: 48px; font-weight: 300; font-family: monospace; font-variant-numeric: tabular-nums; line-height: 1.0; color: #fff; margin: 4px 0; }
-        .t-pred { font-size: 16px; font-weight: 800; text-transform: uppercase; min-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .td-col { 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; 
+            transition: opacity 0.2s; cursor: pointer;
+        }
+        
+        .td-col.user-disabled { opacity: 0.1 !important; }
+        
+        .td-lbl { font-size: 11px; color: #666; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+        
+        .td-val { 
+            font-family: monospace; font-weight: 300; line-height: 1; 
+            font-variant-numeric: tabular-nums; 
+            font-size: 48px; color: #fff;
+        }
+        
+        /* Result Colors */
+        .td-val.final-bh { color: var(--blue); }
+        .td-val.final-hh { color: var(--green); }
+        .td-val.running { color: #fff; } /* White while running */
+        
+        .td-pred { font-size: 16px; font-weight: 800; text-transform: uppercase; min-height: 20px; margin-top: 6px; color: #fff; }
+        .dimmed { opacity: 0.3; transition: opacity 0.2s; }
 
         .clear-btn {
-            position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%);
-            color: #444; font-size: 32px; font-weight: 200; width: 50px; height: 40px;
-            text-align: center; line-height: 40px; cursor: pointer; z-index: 60;
+            position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
+            color: #444; font-size: 28px; font-weight: 200; width: 60px; height: 40px;
+            text-align: center; line-height: 30px; cursor: pointer; z-index: 60; background: #222; border-radius: 20px;
         }
 
         /* --- CONTROL PANEL --- */
@@ -115,10 +143,10 @@
 
         .fg-sweep { background: #222; border-color: #444; color: #666; font-size: 11px; }
         .fg-sweep.selected { background: var(--purple); color: white; border-color: var(--purple); }
+        .fg-sweep.disabled { opacity: 0.2; pointer-events: none; border-color: #222; color: #444; }
 
         .fg-zone.tee { color: var(--green); border-color: #355; }
         .fg-zone.selected { background: var(--green); color: black; border-color: var(--green); }
-        .fg-zone.disabled { opacity: 0.2; pointer-events: none; border-color: #222; color: #444; } 
         
         .fg-empty { pointer-events: none; background: transparent; border: none; }
 
@@ -183,23 +211,29 @@
 <body>
 
     <div class="top-bar">
-        <div class="timer-card" id="card-bh" onclick="app.toggleTimer('bh')">
-            <div class="t-label">Back to Hog</div>
-            <div class="t-time" id="time-bh">0.00</div>
-            <div class="t-pred" id="pred-bh">--</div>
+        <div class="timer-display">
+            <!-- Left: B-H (Toggleable) -->
+            <div class="td-col" id="grp-bh" onclick="app.toggleTimer('bh')">
+                <div class="td-lbl">Back-Hog</div>
+                <div class="td-val large" id="val-bh">--</div>
+                <div class="td-pred" id="pred-bh"></div>
+            </div>
+            
+            <!-- Right: H-H (Toggleable) -->
+            <div class="td-col dimmed" id="grp-hh" onclick="app.toggleTimer('hh')">
+                <div class="td-lbl">Hog-Hog</div>
+                <div class="td-val large" id="val-hh">--</div>
+                <div class="td-pred" id="pred-hh"></div>
+            </div>
+            
+            <div class="clear-btn" onclick="app.reset()">×</div>
         </div>
-        <div class="timer-card" id="card-hh" onclick="app.toggleTimer('hh')">
-            <div class="t-label">Hog to Hog</div>
-            <div class="t-time" id="time-hh">0.00</div>
-            <div class="t-pred" id="pred-hh">--</div>
-        </div>
-        <div class="clear-btn" onclick="app.reset()">×</div>
     </div>
 
     <div class="control-panel">
         <div class="cp-split">
             <div class="ref-section">
-                <div class="ref-header"><span id="ref-title">Live Ice Speeds (TEAM)</span></div>
+                <div class="ref-header" id="ref-header">Live Ice Speeds (TEAM)</div>
                 <table class="ref-table" id="ref-table"></table>
             </div>
             <div class="profile-section" id="profile-container">
@@ -220,6 +254,7 @@
 
     <!-- FLASH INPUT TRAY -->
     <div class="flash-tray" id="flash-tray">
+        <div class="flash-msg" id="flash-msg">SELECT RESULT</div>
         <div class="flash-grid" id="flash-grid">
             <!-- JS Populates 5-Col Grid -->
         </div>
@@ -267,8 +302,7 @@
             <input type="text" id="rename-input" class="rename-input" maxlength="5" />
             <div class="stat-label">TEAM TEE vs PLAYER TEE</div>
             <div class="stat-val" id="calc-offset-display">--</div>
-            <div class="stat-label">CONSISTENCY (± FEET)</div>
-            <div class="stat-val" id="calc-sd-display">--</div>
+            <!-- Consistency Removed -->
             <div class="stat-label">MANUAL OFFSET</div>
             <div class="offset-row">
                 <div class="offset-display" id="manual-offset-display">0.00</div>
@@ -315,28 +349,27 @@
             minBH: 2.0, maxBH: 6.0, fastLimitBH: 3.20,
             minHH: 7.0, maxHH: 22.0, fastLimitHH: 11.70,
 
-            // Zones mapped for lookup
+            // Zones
             zones: [
                 {v: 1.0, n: "High", d: 2.5}, {v: 2.0, n: "Mid", d: 7.5}, {v: 3.0, n: "Tight", d: 12.5},
                 {v: 4.0, n: "T 12", d: 15.5}, {v: 5.0, n: "T 8", d: 17.5}, {v: 6.0, n: "T 4", d: 19.5},
                 {v: 7.0, n: "TEE", d: 21.0},
                 {v: 8.0, n: "B 4", d: 22.5}, {v: 9.0, n: "B 8", d: 24.5}, {v: 10.0, n: "B 12", d: 26.5},
+                {v: 10.5, n: "THRU", d: 29.75},
                 {v: 11.0, n: "Hack", d: 33.0}, {v: 11.5, n: "Board", d: 39.0}
             ],
-            // 5-Col Grid Map with Sweeping
+            // 5-Col Grid Map
             gridMap: [
                 {t:'p', id:'Skip'}, {t:'z', n:'High'}, {t:'z', n:'Mid'}, {t:'z', n:'Tight'}, {t:'s', n:'N/A'},
                 {t:'p', id:'3rd'},  {t:'z', n:'T 12'}, {t:'z', n:'T 8'}, {t:'e'},          {t:'s', n:'L'},
                 {t:'p', id:'2nd'},  {t:'z', n:'T 4'},  {t:'z', n:'TEE'}, {t:'z', n:'B 4'},  {t:'s', n:'M'},
-                {t:'p', id:'Lead'}, {t:'e'},          {t:'z', n:'B 8'}, {t:'z', n:'B 12'}, {t:'s', n:'H'}
+                {t:'p', id:'Lead'}, {t:'z', n:'THRU'},{t:'z', n:'B 8'}, {t:'z', n:'B 12'}, {t:'s', n:'H'}
             ],
-            // Sweeping values
             sweeping: [ {n:'N/A', v:0}, {n:'L', v:3}, {n:'M', v:6}, {n:'H', v:9} ],
             
             refRows: [{v: 11.0, n: "Hack", d: 33.0}, {v: 10.0, n: "B 12", d: 26.5}, {v: 7.0, n: "Tee", d: 21.0}, {v: 4.0, n: "T 12", d: 15.5}, {v: 2.0, n: "Mid", d: 7.5}]
         };
 
-        // Fixed Color Mapping by ID
         const PLAYER_COLORS = { 'Skip': '#FF453A', '3rd': '#FF9F0A', '2nd': '#0A84FF', 'Lead': '#30D158', '-': '#98989D' };
 
         const app = {
@@ -350,12 +383,12 @@
             longPressTimer: null, renameTarget: null, tempOffset: 0, ui: {},
 
             init() {
-                const ids = ['btn-main','time-bh','pred-bh','card-bh','time-hh','pred-hh','card-hh',
+                const ids = ['btn-main','val-bh','pred-bh','grp-bh','val-hh','pred-hh','grp-hh',
                              'ref-table','flash-tray','flash-grid','full-history-body',
-                             'menu-modal','calib-modal','menu-modal','player-edit-modal','zone-list',
+                             'menu-modal','calib-modal','player-edit-modal','zone-list',
                              'p-skip','p-3rd','p-2nd','p-lead','rename-modal','rename-input','confirm-modal',
-                             'profile-container','calc-offset-display','manual-offset-display', 'manual-offset-input',
-                             'fp-skip','fp-3rd','fp-2nd','fp-lead', 'history-modal', 'calc-sd-display', 'ref-title',
+                             'profile-container','calc-offset-display','manual-offset-display', 
+                             'fp-skip','fp-3rd','fp-2nd','fp-lead', 'history-modal', 'ref-header',
                              'graph-modal', 'graph-canvas', 'graph-title', 'graph-legend', 'flash-msg'];
                 ids.forEach(id => {
                     const el = document.getElementById(id);
@@ -395,7 +428,7 @@
                         div.appendChild(btn);
                     } else if (item.t === 'z') {
                         const btn = document.createElement('button');
-                        btn.className = 'fg-btn fg-zone'; // UNLOCKED by default
+                        btn.className = 'fg-btn fg-zone';
                         btn.id = `fz-${item.n.replace(/\s+/g, '')}`;
                         if(item.n === 'TEE') btn.classList.add('tee');
                         btn.innerText = item.n;
@@ -450,13 +483,13 @@
             
             checkCommit() {
                 if(!this.pendingShot) return;
+                
                 const isHHOnly = (this.pendingShot.bh <= 0.1);
                 
                 if (isHHOnly) {
-                     // H-H Only: Requires Zone only
                      if (this.pendingShot.actual !== null) this.commitShot();
                 } else {
-                     // B-H Shot: Requires Zone AND Sweep (sweep can be 0/NA, but not null)
+                     // Need Sweep + Zone for BH
                      if (this.pendingShot.actual !== null && this.pendingShot.sweep !== null) {
                          this.commitShot();
                      }
@@ -464,7 +497,6 @@
             },
             
             commitShot() {
-                // FORCE ENABLE
                 if(this.pendingShot.bh > CONFIG.minBH) this.pendingShot.useBH = true;
                 if(this.pendingShot.hh > CONFIG.minHH) this.pendingShot.useHH = true;
 
@@ -475,6 +507,51 @@
                 this.currentProfile = 'TEAM';
                 this.updateProfile(); 
             },
+
+            // RE-ADDED MISSING TIMER FUNCTION
+            startTimer() {
+                if(this.animationFrame) cancelAnimationFrame(this.animationFrame);
+                const animate = () => {
+                    const now = Date.now();
+                    if(this.state === 'RUNNING') {
+                        const curSplit = (now - this.t0)/1000;
+                        this.ui['val-bh'].innerText = curSplit.toFixed(2);
+                        
+                        // AUTO-HOG
+                        if (curSplit > 5.5) {
+                            this.t1 = this.t0; 
+                            this.t0 = 0;
+                            this.state = 'INTERVAL';
+                            this.ui['val-bh'].innerText = "--"; 
+                            this.ui['pred-bh'].innerText = ""; 
+                            this.ui['grp-bh'].classList.add('dimmed');
+                            this.ui['grp-hh'].classList.remove('dimmed');
+                            this.ui['btn-main'].innerText = "HOG 2";
+                        }
+                    } 
+                    else if (this.state === 'INTERVAL') {
+                        const curInt = (now - this.t1)/1000;
+                        this.ui['val-hh'].innerText = curInt.toFixed(2);
+                        
+                        // TIMEOUT
+                        if (curInt > 19.0) {
+                            this.stopTimer();
+                            this.ui['val-hh'].innerText = "--";
+                            if (this.split > 0) {
+                                this.interval = 0; 
+                                this.finishShot();
+                            } else {
+                                this.reset();
+                            }
+                            return;
+                        }
+                    }
+                    this.animationFrame = requestAnimationFrame(animate);
+                };
+                this.animationFrame = requestAnimationFrame(animate);
+            },
+            
+            stopTimer() { if(this.animationFrame) cancelAnimationFrame(this.animationFrame); },
 
             setupProfileBtn(id, key) {
                 const btn = document.getElementById(id);
@@ -530,22 +607,21 @@
                     this.state = 'RUNNING';
                     if (this.enableBH) {
                         this.t0 = now;
-                        this.ui['card-bh'].classList.remove('disabled'); this.ui['card-bh'].classList.add('running');
-                        this.ui['pred-bh'].innerText = "";
+                        this.ui['grp-bh'].classList.remove('dimmed');
+                        this.ui['val-bh'].innerText = "0.00";
                         this.ui['btn-main'].innerText = "HOG 1"; this.ui['btn-main'].className = 'st-split';
                     } else {
+                        // B-H Disabled: Start directly in H-H
                         this.t1 = now; this.state = 'INTERVAL'; 
-                        this.ui['card-bh'].classList.add('disabled');
-                        this.ui['card-hh'].classList.add('running');
-                        this.ui['pred-hh'].innerText = "";
+                        this.ui['grp-bh'].classList.add('dimmed');
+                        this.ui['grp-hh'].classList.remove('dimmed');
                         this.ui['btn-main'].innerText = "HOG 2"; this.ui['btn-main'].className = 'st-int';
                     }
                     this.startTimer();
                     this.vibrate(15);
                 } else if (this.state === 'RUNNING') {
                     this.t1 = now; this.split = (this.t1 - this.t0) / 1000;
-                    this.ui['card-bh'].classList.remove('running'); this.ui['card-bh'].classList.add('active');
-                    this.ui['time-bh'].innerText = this.split.toFixed(2);
+                    this.ui['val-bh'].innerText = this.split.toFixed(2);
                     
                     // AUTO-DETECT HOG TO HOG
                     if (this.split > 5.5) {
@@ -555,19 +631,16 @@
                         this.t0 = 0;
                         this.state = 'INTERVAL';
                         
-                        this.ui['time-bh'].innerText = "0.00";
-                        this.ui['pred-bh'].innerText = "--"; 
-                        this.ui['card-bh'].classList.remove('running');
-                        this.ui['card-bh'].classList.add('disabled');
+                        this.ui['val-bh'].innerText = "--"; 
+                        this.ui['grp-bh'].classList.add('dimmed');
                         
-                        this.ui['card-hh'].classList.add('running');
-                        this.ui['btn-main'].innerText = "HOG 2";
+                        this.ui['grp-hh'].classList.remove('dimmed');
+                        this.ui['btn-main'].innerText = "HOG 2"; this.ui['btn-main'].className = 'st-int';
                     } else {
                         this.predictBH(this.split);
                         if (this.enableHH) {
                             this.state = 'INTERVAL';
-                            this.ui['card-hh'].classList.add('running');
-                            this.ui['pred-hh'].innerText = "";
+                            this.ui['grp-hh'].classList.remove('dimmed');
                             this.ui['btn-main'].innerText = "HOG 2"; this.ui['btn-main'].className = 'st-int';
                         } else {
                             this.finishShot();
@@ -576,14 +649,13 @@
                     this.vibrate(30);
                 } else if (this.state === 'INTERVAL') {
                     this.interval = (now - this.t1) / 1000;
-                    this.ui['card-hh'].classList.remove('running'); this.ui['card-hh'].classList.add('active');
-                    this.ui['time-hh'].innerText = this.interval.toFixed(2);
+                    this.ui['val-hh'].innerText = this.interval.toFixed(2);
                     this.predictHH(this.interval);
                     
                     // TIMEOUT LOGIC
                     if (this.interval > 19.0) {
                         this.stopTimer();
-                        this.ui['time-hh'].innerText = "0.00";
+                        this.ui['val-hh'].innerText = "--";
                         if (this.split > 0) {
                             this.interval = 0; 
                             this.finishShot();
@@ -609,13 +681,12 @@
                 
                 if (!validBH && !validHH) return;
                 
-                // Defaults
                 const defaultUseBH = validBH && (this.split <= CONFIG.fastLimitBH);
                 const defaultUseHH = validHH && (this.interval <= CONFIG.fastLimitHH);
                 
                 let p = this.currentProfile === 'TEAM' ? '-' : this.currentProfile;
                 
-                // RESET SWEEP to Null
+                // RESET
                 this.currentSweep = null;
                 const allSweeps = document.querySelectorAll('.fg-sweep');
                 allSweeps.forEach(b => b.classList.remove('selected'));
@@ -627,7 +698,6 @@
                 const sweeps = document.querySelectorAll('.fg-sweep');
                 if (isHHOnly) {
                      sweeps.forEach(s => s.classList.add('disabled'));
-                     // ZONES UNLOCKED BY DEFAULT
                 } else {
                      sweeps.forEach(s => s.classList.remove('disabled'));
                 }
@@ -635,7 +705,7 @@
                 this.pendingShot = {
                     id: Date.now(), player: p,
                     bh: validBH ? this.split : 0, hh: validHH ? this.interval : 0,
-                    actual: null, sweep: null, // Req selection
+                    actual: null, sweep: null, // Req selection if BH
                     useBH: defaultUseBH, useHH: defaultUseHH,
                     rawBH: validBH ? (CONFIG.bhSlope * this.split) + CONFIG.bhIntercept : 0,
                     rawHH: validHH ? (CONFIG.hhSlope * this.interval) + CONFIG.hhIntercept : 0
@@ -674,63 +744,32 @@
                      this.updateFlashPlayers(this.pendingShot.player);
                  }
             },
-
-            startTimer() {
-                if(this.animationFrame) cancelAnimationFrame(this.animationFrame);
-                const animate = () => {
-                    const now = Date.now();
-                    if(this.state === 'RUNNING') {
-                        const curSplit = (now - this.t0)/1000;
-                        this.ui['time-bh'].innerText = curSplit.toFixed(2);
-                        
-                        // AUTO-HOG LIVE CHECK
-                        if (curSplit > 5.5) {
-                            this.t1 = this.t0; 
-                            this.t0 = 0;
-                            this.state = 'INTERVAL';
-                            this.ui['time-bh'].innerText = "0.00";
-                            this.ui['pred-bh'].innerText = "--"; 
-                            this.ui['card-bh'].classList.remove('running');
-                            this.ui['card-bh'].classList.add('disabled');
-                            
-                            this.ui['card-hh'].classList.add('running');
-                            this.ui['btn-main'].innerText = "HOG 2";
-                        }
-                    } 
-                    else if (this.state === 'INTERVAL') {
-                        const curInt = (now - this.t1)/1000;
-                        this.ui['time-hh'].innerText = curInt.toFixed(2);
-                        
-                        if (curInt > 19.0) {
-                            this.stopTimer();
-                            this.ui['time-hh'].innerText = "0.00";
-                            if (this.split > 0) {
-                                this.interval = 0; 
-                                this.finishShot();
-                            } else {
-                                this.reset();
-                            }
-                            return;
-                        }
-                    }
-                    this.animationFrame = requestAnimationFrame(animate);
-                };
-                this.animationFrame = requestAnimationFrame(animate);
-            },
-            stopTimer() { if(this.animationFrame) cancelAnimationFrame(this.animationFrame); },
+            
+            // Toggle Timer: Check if elements exist to prevent crash
             toggleTimer(type) {
                 if (this.state !== 'IDLE' && this.state !== 'FINISHED') return;
-                if (type === 'bh') { this.enableBH = !this.enableBH; this.ui['card-bh'].classList.toggle('disabled', !this.enableBH); }
-                else { this.enableHH = !this.enableHH; this.ui['card-hh'].classList.toggle('disabled', !this.enableHH); }
-                this.ui['btn-main'].disabled = (!this.enableBH && !this.enableHH);
+                
+                const el = type === 'bh' ? this.ui['grp-bh'] : this.ui['grp-hh'];
+                if (el) {
+                    if (type === 'bh') { 
+                        this.enableBH = !this.enableBH; 
+                        el.classList.toggle('user-disabled', !this.enableBH); 
+                    } else { 
+                        this.enableHH = !this.enableHH; 
+                        el.classList.toggle('user-disabled', !this.enableHH); 
+                    }
+                }
             },
+            
             reset(soft=false) {
-                this.stopTimer(); this.state = 'IDLE';
-                this.ui['time-bh'].innerText = "0.00"; this.ui['pred-bh'].innerText = "--";
-                this.ui['time-hh'].innerText = "0.00"; this.ui['pred-hh'].innerText = "--";
-                this.ui['card-bh'].className = 'timer-card' + (this.enableBH ? '' : ' disabled');
-                this.ui['card-hh'].className = 'timer-card' + (this.enableHH ? '' : ' disabled');
-                this.ui['pred-bh'].style.color = "#fff"; this.ui['pred-hh'].style.color = "#fff";
+                this.stopTimer();
+                this.state = 'IDLE';
+                this.ui['val-bh'].innerText = "--"; this.ui['pred-bh'].innerText = "";
+                this.ui['val-hh'].innerText = "--"; this.ui['pred-hh'].innerText = "";
+                
+                if(this.ui['grp-bh']) this.ui['grp-bh'].classList.remove('dimmed');
+                if(this.ui['grp-hh']) this.ui['grp-hh'].classList.add('dimmed');
+                
                 if(!soft) { this.ui['btn-main'].innerText = "START"; this.ui['btn-main'].className = ''; }
                 this.pendingShot = null;
                 this.ui['flash-tray'].classList.remove('active');
@@ -749,20 +788,20 @@
             },
 
             predictBH(time) {
-                if (time < CONFIG.minBH || time > CONFIG.maxBH || time <= CONFIG.fastLimitBH) { this.ui['pred-bh'].innerText = "-"; this.ui['pred-bh'].style.color = "#444"; return null; }
+                if (time < CONFIG.minBH || time > CONFIG.maxBH || time <= CONFIG.fastLimitBH) { this.ui['pred-bh'].innerText = "-"; return null; }
                 const activeOffset = this.getProfileOffsetBH();
                 const dist = (CONFIG.bhSlope * time) + CONFIG.bhIntercept + activeOffset;
                 this.displayPred(this.ui['pred-bh'], dist);
             },
             predictHH(time) {
-                if (time < CONFIG.minHH || time > CONFIG.maxHH || time <= CONFIG.fastLimitHH) { this.ui['pred-hh'].innerText = "-"; this.ui['pred-hh'].style.color = "#444"; return null; }
+                if (time < CONFIG.minHH || time > CONFIG.maxHH || time <= CONFIG.fastLimitHH) { this.ui['pred-hh'].innerText = "-"; return null; }
                 const dist = (CONFIG.hhSlope * time) + CONFIG.hhIntercept + this.iceOffsetHH;
                 this.displayPred(this.ui['pred-hh'], dist);
             },
             displayPred(el, dist) {
                 let txt = "UNKNOWN"; let minDiff = 99;
                 CONFIG.zones.forEach(z => { if (Math.abs(z.d - dist) < minDiff) { minDiff = Math.abs(z.d - dist); txt = z.n; } });
-                el.innerText = txt; el.style.color = "#fff"; 
+                el.innerText = txt; 
             },
 
             saveShot(shot) {
@@ -775,9 +814,7 @@
                 this.updateSmartCalibration(); 
             },
 
-            // --- SMART CALIBRATION ---
             updateSmartCalibration() {
-                // BH
                 if (this.currentProfile !== 'TEAM' && this.currentProfile !== '-' && this.manualOffsets[this.currentProfile]) {
                     this.iceOffsetBH = this.getProfileOffsetBH(); 
                 } else {
@@ -785,12 +822,9 @@
                     this.iceOffsetBH = stats.mean; 
                     this.statsBH = stats; 
                 }
-
-                // HH
                 const hhStats = this.calcSmartStats('HH', 'TEAM');
                 this.iceOffsetHH = hhStats.mean;
                 this.statsHH = hhStats;
-                
                 this.updateProfileUI();
                 this.renderRef();
             },
@@ -798,50 +832,48 @@
             calcSmartStats(type, profile) {
                 let errors = [];
                 let outliers = new Set();
-                
                 this.history.forEach(s => {
                      if(s.actual === null) return;
                      if(profile !== 'TEAM' && s.player !== profile) return;
-                     
                      if (type === 'BH' && s.useBH && s.bh > 0 && s.actual <= 26.5) {
-                         // Normalize BH Error: (Actual - Sweep) - Predicted
-                         const normActual = s.actual - (s.sweep || 0);
+                         const normActual = s.actual - (s.sweep || 0); 
                          errors.push({ id: s.id, val: normActual - s.rawBH });
                      } else if (type === 'HH' && s.useHH && s.hh > 0) {
-                         // HH uses Raw Actual (Sweeping ignored/baked in)
                          errors.push({ id: s.id, val: s.actual - s.rawHH });
                      }
                 });
-                
                 if(errors.length === 0) return { mean: 0, sd: 0, outlierIds: outliers };
                 
+                // Recency for HH
+                if(type === 'HH' && errors.length > 5) {
+                    let wSum = 0, wDiv = 0;
+                    errors.forEach((e, i) => {
+                        let w = (i < 6) ? 1.0 : 0.2; // 60% approx
+                        wSum += e.val * w;
+                        wDiv += w;
+                    });
+                    return { mean: wSum / wDiv, sd: 0, outlierIds: outliers };
+                }
+
                 const sum = errors.reduce((a,b) => a+b.val, 0);
                 const mean = sum / errors.length;
-                
                 if (errors.length < 4) return { mean, sd: 0, outlierIds: outliers }; 
-                
                 const sqDiff = errors.map(e => Math.pow(e.val - mean, 2));
                 const avgSq = sqDiff.reduce((a,b) => a+b, 0) / errors.length;
                 const sd = Math.sqrt(avgSq);
-                
                 const clean = errors.filter(e => {
                     const isOut = Math.abs(e.val - mean) > (2 * sd);
                     if(isOut) outliers.add(e.id);
                     return !isOut;
                 });
-                
                 const cleanSum = clean.reduce((a,b) => a+b.val, 0);
                 const finalMean = clean.length > 0 ? cleanSum / clean.length : mean;
-
                 return { mean: finalMean, sd: sd, outlierIds: outliers };
             },
             
-            calcOffsetForProfile(prof) {
-                return this.calcSmartStats('BH', prof).mean;
-            },
-
+            calcOffsetForProfile(prof) { return this.calcSmartStats('BH', prof).mean; },
             updateProfile() { this.updateSmartCalibration(); },
-
+            
             updateProfileUI() {
                 const idMap = { 'p-skip': 'Skip', 'p-3rd': '3rd', 'p-2nd': '2nd', 'p-lead': 'Lead' };
                 for (const [id, key] of Object.entries(idMap)) {
@@ -852,7 +884,6 @@
                 }
                 const pLabel = this.currentProfile === 'TEAM' ? 'TEAM' : (this.profileNames[this.currentProfile] || this.currentProfile);
                 if(this.ui['ref-header']) this.ui['ref-header'].innerText = `Live Ice Speeds (${pLabel})`;
-                
                 if (this.currentProfile !== 'TEAM') {
                     let activeId = '';
                     if (this.currentProfile === 'Skip') activeId = 'p-skip';
@@ -864,33 +895,18 @@
                 }
             },
 
-            toggleProfile(p) {
-                this.currentProfile = (this.currentProfile === p) ? 'TEAM' : p;
-                this.updateProfile(); 
-            },
+            toggleProfile(p) { this.currentProfile = (this.currentProfile === p) ? 'TEAM' : p; this.updateProfile(); },
             openRename(key) {
                 this.renameTarget = key;
                 this.ui['rename-input'].value = this.profileNames[key];
-                
                 const teamStats = this.calcSmartStats('BH', 'TEAM');
                 const pStats = this.calcSmartStats('BH', key);
-                
                 const teamTeeTime = (21.0 - CONFIG.bhIntercept - teamStats.mean) / CONFIG.bhSlope;
                 const playerTeeTime = (21.0 - CONFIG.bhIntercept - pStats.mean) / CONFIG.bhSlope;
                 const diffTime = playerTeeTime - teamTeeTime;
                 const sign = diffTime > 0 ? "+" : "";
-                
-                this.ui['calc-offset-display'].innerText = 
-                    `TEAM TEE: ${teamTeeTime.toFixed(2)}s\n` + 
-                    `${this.profileNames[key]} TEE: ${playerTeeTime.toFixed(2)}s\n` +
-                    `DIFF: ${sign}${diffTime.toFixed(2)}s`;
-                
-                // Consistency Score
-                const sdSeconds = pStats.sd;
-                const sdFeet = Math.abs(sdSeconds * CONFIG.bhSlope);
-                this.ui['calc-sd-display'].innerText = 
-                    `±${sdFeet.toFixed(0)} ft`;
-
+                this.ui['calc-offset-display'].innerText = `TEAM TEE: ${teamTeeTime.toFixed(2)}s\n` + `${this.profileNames[key]} TEE: ${playerTeeTime.toFixed(2)}s\n` + `DIFF: ${sign}${diffTime.toFixed(2)}s`;
+                // Consistency removed
                 const man = this.manualOffsets[key] || 0;
                 this.tempOffset = man; 
                 this.updateOffsetDisplay();
@@ -923,7 +939,6 @@
                 cvs.width = rect.width * dpr; cvs.height = rect.height * dpr;
                 ctx.scale(dpr, dpr);
                 this.ui['graph-title'].innerText = type === 'BH' ? 'Back-to-Hog' : 'Hog-to-Hog';
-                
                 // Legend
                 const legend = this.ui['graph-legend'];
                 legend.innerHTML = '';
@@ -935,7 +950,6 @@
                      item.innerHTML = `<span class="dot" style="background:${colors[i]}"></span>${this.profileNames[key]}`;
                      legend.appendChild(item);
                 });
-                
                 this.drawGraph(type, ctx, rect.width, rect.height);
             },
             drawGraph(type, ctx, w, h) {
@@ -945,21 +959,13 @@
                 const mapX = (val) => ((val - xMin) / (xMax - xMin)) * w;
                 const mapY = (val) => h - ((val - yMin) / (yMax - yMin)) * h;
                 
-                // Grid & Labels
                 ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.fillStyle = '#666'; ctx.font = "10px sans-serif";
                 ctx.beginPath();
-                for(let d=5; d<=30; d+=5) { 
-                    let y = mapY(d); ctx.moveTo(0, y); ctx.lineTo(w, y); 
-                    ctx.fillText(d+'ft', 2, y-2);
-                }
+                for(let d=5; d<=30; d+=5) { let y = mapY(d); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.fillText(d+'ft', 2, y-2); }
                 ctx.stroke();
                 
-                // Axis Labels X
                 ctx.textAlign = "center";
-                for(let t=xMin; t<=xMax; t+=(type==='BH'?0.2:1.0)) {
-                     let x = mapX(t);
-                     ctx.fillText(t.toFixed(1), x, h-2);
-                }
+                for(let t=xMin; t<=xMax; t+=(type==='BH'?0.2:1.0)) { let x = mapX(t); ctx.fillText(t.toFixed(1), x, h-2); }
 
                 // Team Line
                 let slope, intercept, offset;
@@ -1057,10 +1063,10 @@
             vibrate(p) { if(navigator.vibrate) navigator.vibrate(p); },
             saveStorage() { 
                 const data = { history: this.history, profileNames: this.profileNames, manualOffsets: this.manualOffsets };
-                localStorage.setItem('cp_v23_1', JSON.stringify(data)); 
+                localStorage.setItem('cp_v24_5', JSON.stringify(data)); 
             },
             loadData() { 
-                const d = localStorage.getItem('cp_v23_1'); 
+                const d = localStorage.getItem('cp_v24_5'); 
                 if(d) {
                     const data = JSON.parse(d);
                     this.history = data.history || [];
