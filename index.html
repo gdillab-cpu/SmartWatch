@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Clock-Dilla v25.11</title>
+    <title>Clock-Dilla v25.12</title>
     <style>
         :root {
             /* --- THEME & COLORS --- */
@@ -194,6 +194,7 @@
         .hist-table th { text-align: center; border-bottom: 1px solid #444; padding: 8px 4px; color: #888; position: sticky; top: 0; background: #222; }
         .hist-table td { border-bottom: 1px solid #333; padding: 10px 4px; text-align: center; }
         .h-dim { color: #555; }
+        .h-outlier { color: var(--c-orange); }
 
         /* Graph Canvas */
         #graph-canvas { background: #111; width: 100%; height: 250px; border: 1px solid #333; border-radius: 8px; }
@@ -270,7 +271,7 @@
 
     <!-- UI: FOOTER ACTION -->
     <div class="controls-area">
-        <button id="btn-main" class="btn-state-start" data-action="main-btn">START</button>
+        <button id="btn-main" class="btn-state-start">START</button>
     </div>
 
     <!-- MODALS (Generic Container) -->
@@ -406,8 +407,9 @@
                         const cur = (now - this.t1) / 1000;
                         if(this.onTick) this.onTick({ ...this, liveHH: cur });
                         
-                        // Timeout
+                        // Timeout Logic (19s)
                         if (cur > CONFIG.limits.timeout) {
+                            this.splitHH = 0; // Mark as invalid/timeout
                             this.finish();
                         }
                     }
@@ -443,6 +445,8 @@
                 this.activeProfile = 'TEAM';
                 this.iceOffsetBH = 0; // TEAM calibration
                 this.iceOffsetHH = 0; // TEAM calibration
+                this.outliersBH = new Set();
+                this.outliersHH = new Set();
                 this.load();
             }
 
@@ -481,6 +485,8 @@
             }
 
             recalcStats() {
+                this.outliersBH.clear();
+                this.outliersHH.clear();
                 this.iceOffsetBH = this.calculateSmartOffset('BH');
                 this.iceOffsetHH = this.calculateSmartOffset('HH');
             }
@@ -522,7 +528,7 @@
 
                     if (s.actual < 14.0) weight *= 0.5; // Guards (applied to both)
 
-                    return { error, weight };
+                    return { id: s.id, error, weight };
                 });
 
                 // 2. Initial Weighted Mean
@@ -531,7 +537,12 @@
                 // 3. Outlier Rejection (> 2 SD)
                 const cleanData = dataPoints.filter(d => {
                     if (stats1.sd === 0) return true;
-                    return Math.abs(d.error - stats1.mean) <= (2 * stats1.sd);
+                    const isOutlier = Math.abs(d.error - stats1.mean) > (2 * stats1.sd);
+                    if(isOutlier) {
+                        if(type === 'BH') this.outliersBH.add(d.id);
+                        else this.outliersHH.add(d.id);
+                    }
+                    return !isOutlier;
                 });
 
                 if (cleanData.length === 0) return stats1.mean;
@@ -651,22 +662,26 @@
             bindEvents() {
                 // UNIVERSAL TOUCH HANDLER (Fixes iPhone tap issues)
                 const handleTouch = (e) => {
-                    // Prevent default only if we found an action, to allow scrolling elsewhere
                     const target = e.target.closest('[data-action]');
                     if(!target) return;
-                    
-                    e.preventDefault(); // Stop mouse emulation
+                    e.preventDefault(); 
                     this.handleAction(target.dataset.action, target);
                 };
 
-                // Add robust listeners
                 document.body.addEventListener('touchend', handleTouch, {passive: false});
                 document.body.addEventListener('click', (e) => {
-                    // Fallback for non-touch (desktop)
-                    // If touchend fired, click shouldn't fire due to preventDefault
                     const target = e.target.closest('[data-action]');
                     if(target) this.handleAction(target.dataset.action, target);
                 });
+
+                // MAIN BUTTON: INSTANT TRIGGER
+                const btnMain = document.getElementById('btn-main');
+                if(btnMain) {
+                    btnMain.addEventListener('touchstart', (e) => {
+                        e.preventDefault(); // Stop ghost mouse events
+                        this.handleAction('main-btn', btnMain);
+                    }, {passive: false});
+                }
 
                 // Long Press for Profile Buttons
                 ['Skip','3rd','2nd','Lead'].forEach(id => {
@@ -705,7 +720,6 @@
                     case 'reset': this.app.reset(); break;
                     case 'toggle-bh': 
                         this.app.timer.enabledBH = !this.app.timer.enabledBH;
-                        // Toggle UI immediately
                         document.getElementById('disp-bh').classList.toggle('disabled', !this.app.timer.enabledBH);
                         this.update(this.app.timer);
                         break;
@@ -759,18 +773,16 @@
                 if (timerState.state === 'RUNNING') {
                     this.els.valBH.innerText = timerState.liveBH.toFixed(2);
                     this.els.valBH.classList.remove('idle'); 
-                    // No Live Prediction
                     this.els.predBH.innerText = "";
                     this.els.predHH.innerText = ""; // Clear HH
                     this.setBtnState('split', 'HOG 1');
                     
                     this.els.valHH.innerText = "--";
-                    this.els.valHH.classList.add('idle'); // Revert to Idle Grey
+                    this.els.valHH.classList.add('idle'); 
                 } 
                 else if (timerState.state === 'INTERVAL') {
                     this.els.valHH.innerText = timerState.liveHH.toFixed(2);
                     this.els.valHH.classList.remove('idle');
-                    // No Live Prediction for HH currently running
                     this.els.predHH.innerText = "";
                     this.setBtnState('int', 'HOG 2');
 
@@ -780,14 +792,11 @@
                         this.els.valBH.classList.add('idle');
                     } else {
                         // IMMEDIATE B-H PREDICTION
-                        // Time is stopped, show estimate
                         this.predict('BH', timerState.splitBH);
                     }
                 }
                 else if (timerState.state === 'IDLE') {
                     this.setBtnState('start', 'START');
-                    // Keep existing values if just stopped short, otherwise clear
-                    // Logic handled in activateInput/reset
                 }
             }
 
@@ -806,28 +815,23 @@
             }
 
             activateInput(finalState) {
-                // Display predictions for the final static times
                 if(finalState.enabledBH) this.predict('BH', finalState.splitBH);
-                if(finalState.enabledHH) this.predict('HH', finalState.splitHH);
+                // Only predict HH if valid (not timed out)
+                if(finalState.enabledHH && finalState.splitHH > 0) this.predict('HH', finalState.splitHH);
 
-                // INPUT FILTERING: Check if times are realistic
+                // INPUT FILTERING
                 const bhValid = finalState.enabledBH && finalState.splitBH >= CONFIG.limits.minBH;
                 const hhValid = finalState.enabledHH && finalState.splitHH >= CONFIG.limits.minHH;
 
-                // If both enabled but both invalid, or single enabled and invalid -> Reset to "Stop" state visually (button ready to start)
+                // Stop if all active timers are invalid (short or timed out)
                 const bhTooShort = finalState.enabledBH && finalState.splitBH < CONFIG.limits.minBH;
-                const hhTooShort = finalState.enabledHH && finalState.splitHH < CONFIG.limits.minHH;
-                
-                // Logic: If active timers are ALL too short, don't open tray.
-                // Leave times visible, reset Main Button to START.
+                // HH Timeout results in splitHH = 0, which is < minHH, so this covers it
+                const hhInvalid = finalState.enabledHH && finalState.splitHH < CONFIG.limits.minHH;
                 
                 let abort = false;
-                // Case 1: Both Enabled, both short
-                if (finalState.enabledBH && finalState.enabledHH && bhTooShort && hhTooShort) abort = true;
-                // Case 2: BH Only, BH Short
+                if (finalState.enabledBH && finalState.enabledHH && bhTooShort && hhInvalid) abort = true;
                 if (finalState.enabledBH && !finalState.enabledHH && bhTooShort) abort = true;
-                // Case 3: HH Only, HH Short
-                if (!finalState.enabledBH && finalState.enabledHH && hhTooShort) abort = true;
+                if (!finalState.enabledBH && finalState.enabledHH && hhInvalid) abort = true;
                 
                 if (abort) {
                      this.setBtnState('start', 'START');
@@ -901,7 +905,6 @@
                 const hasSweep = this.tempShot.sweep !== null;
 
                 if (hasZone && (!needsSweep || hasSweep)) {
-                    // Update highlight one last time to ensure final sweep selection is visible
                     this.highlightGrid(); 
                     
                     this.app.session.addShot(this.tempShot);
@@ -980,10 +983,13 @@
                     const res = CONFIG.zones.find(z => z.d === s.actual)?.n || '-';
                     const pName = s.player === 'TEAM' ? '-' : (this.app.session.profiles[s.player] || s.player).substring(0,4);
                     
+                    const bhOut = this.app.session.outliersBH.has(s.id);
+                    const hhOut = this.app.session.outliersHH.has(s.id);
+
                     rows += `<tr>
                         <td>${pName}</td>
-                        <td class="${!s.useBH ? 'h-dim':''}">${s.bh.toFixed(2)}</td>
-                        <td class="${!s.useHH ? 'h-dim':''}">${s.hh.toFixed(2)}</td>
+                        <td class="${!s.useBH ? 'h-dim' : bhOut ? 'h-outlier' : ''}">${s.bh.toFixed(2)}</td>
+                        <td class="${!s.useHH ? 'h-dim' : hhOut ? 'h-outlier' : ''}">${s.hh.toFixed(2)}</td>
                         <td>${res}</td>
                         <td class="h-dim">${sw}</td>
                     </tr>`;
