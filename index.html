@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Clock-Dilla v25.6</title>
+    <title>Clock-Dilla v25.7</title>
     <style>
         :root {
             /* --- THEME & COLORS --- */
@@ -24,7 +24,7 @@
             /* --- DIMENSIONS --- */
             --safe-top: env(safe-area-inset-top, 20px);
             --safe-bottom: env(safe-area-inset-bottom, 20px);
-            --header-h: 160px;
+            --header-h: 220px; /* INCREASED HEIGHT */
             --control-h: 115px;
         }
 
@@ -32,8 +32,7 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
         body { margin: 0; padding: 0; background-color: var(--c-bg); color: var(--c-text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        /* Modern way to prevent double-tap zoom while keeping click events working */
-        button { border: none; outline: none; background: none; font-family: inherit; touch-action: manipulation; }
+        button { border: none; outline: none; background: none; font-family: inherit; touch-action: manipulation; cursor: pointer; }
 
         /* --- LAYOUT UTILS --- */
         .flex-center { display: flex; align-items: center; justify-content: center; }
@@ -64,19 +63,19 @@
         
         /* State: Disabled (Faint Grey) */
         .td-col.disabled { opacity: 0.3; }
-        .td-col.disabled .td-val { color: #555; } /* Faint grey dashes when disabled */
+        .td-col.disabled .td-val { color: #555; } 
 
         .td-lbl { font-size: 11px; color: #666; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
         
-        /* Value Colors: White for active numbers & active dashes */
-        .td-val { font-family: monospace; font-size: 48px; font-weight: 300; line-height: 1; font-variant-numeric: tabular-nums; color: #fff; }
+        /* Value Colors */
+        .td-val { font-family: monospace; font-size: 56px; font-weight: 300; line-height: 1; font-variant-numeric: tabular-nums; color: #fff; }
         
-        .td-pred { font-size: 16px; font-weight: 800; text-transform: uppercase; margin-top: 6px; min-height: 20px; color: #fff; }
+        .td-pred { font-size: 18px; font-weight: 800; text-transform: uppercase; margin-top: 10px; min-height: 24px; color: #fff; }
         
         .btn-reset {
-            position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
-            width: 60px; height: 30px; border-radius: 15px; background: #222;
-            color: #555; font-size: 24px; line-height: 28px; text-align: center; cursor: pointer;
+            position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+            width: 60px; height: 30px; border-radius: 15px; background: #333;
+            color: #888; font-size: 24px; line-height: 28px; text-align: center; cursor: pointer;
         }
 
         /* --- 2. CONTROL PANEL --- */
@@ -90,7 +89,7 @@
         .ref-section { width: 60%; padding-left: 8px; border-right: 1px solid var(--c-border); display: flex; flex-direction: column; justify-content: center; }
         .ref-header { text-align: center; font-size: 11px; color: var(--c-grey); font-weight: 700; margin-bottom: 4px; text-transform: uppercase; }
         .ref-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .ref-table td { padding: 2px 0; border: none; text-align: center; } /* No lines */
+        .ref-table td { padding: 2px 0; border: none; text-align: center; } 
         .ref-table td:first-child { text-align: left; font-weight: 700; color: #ccc; }
 
         /* Profile Selection Section */
@@ -112,8 +111,11 @@
 
         /* --- 3. INPUT TRAY (The Grid) --- */
         .flash-tray {
-            flex: 1; background: #000; padding: 10px; padding-bottom: calc(var(--safe-bottom) + 160px);
-            display: flex; flex-direction: column; justify-content: center;
+            flex: 1; background: #000; padding: 10px; 
+            padding-bottom: calc(var(--safe-bottom) + 160px);
+            display: flex; flex-direction: column; 
+            justify-content: flex-start; /* MOVED TO TOP */
+            padding-top: 20px; /* Space from control panel */
             opacity: 0.3; pointer-events: none; transition: opacity 0.2s;
         }
         .flash-tray.active { opacity: 1; pointer-events: auto; }
@@ -632,11 +634,23 @@
             }
 
             bindEvents() {
-                // Global Click
-                document.body.addEventListener('click', (e) => {
+                // UNIVERSAL TOUCH HANDLER (Fixes iPhone tap issues)
+                const handleTouch = (e) => {
+                    // Prevent default only if we found an action, to allow scrolling elsewhere
                     const target = e.target.closest('[data-action]');
                     if(!target) return;
+                    
+                    e.preventDefault(); // Stop mouse emulation
                     this.handleAction(target.dataset.action, target);
+                };
+
+                // Add robust listeners
+                document.body.addEventListener('touchend', handleTouch, {passive: false});
+                document.body.addEventListener('click', (e) => {
+                    // Fallback for non-touch (desktop)
+                    // If touchend fired, click shouldn't fire due to preventDefault
+                    const target = e.target.closest('[data-action]');
+                    if(target) this.handleAction(target.dataset.action, target);
                 });
 
                 // Long Press for Profile Buttons
@@ -651,7 +665,7 @@
                         }, 800);
                     };
                     const end = (e) => {
-                        if (e.type === 'touchend') e.preventDefault(); // Prevent ghost mouse events
+                        if (e.type === 'touchend') e.preventDefault(); 
                         if (this.longPressTimer) {
                             clearTimeout(this.longPressTimer);
                             this.longPressTimer = null;
@@ -668,11 +682,6 @@
                     btn.addEventListener('mousedown', start);
                     btn.addEventListener('mouseup', end);
                 });
-
-                // Prevent Zoom but NOT clicks (REMOVED)
-                /* document.body.addEventListener('touchstart', (e) => {
-                    if (e.target.tagName === 'BUTTON') e.preventDefault(); 
-                }, {passive: false}); */
             }
 
             handleAction(action, el) {
@@ -753,14 +762,8 @@
                 }
                 else if (timerState.state === 'IDLE') {
                     this.setBtnState('start', 'START');
-                    this.els.valBH.innerText = "--"; 
-                    this.els.valHH.innerText = "--"; 
-                    // Only add idle class if enabled (to show white vs grey)
-                    // Actually, .disabled handles the grey opacity, so default is white.
-                    // But we want 'dashes' to be distinct if active.
-                    // The CSS rules: .td-val is white. .td-col.disabled .td-val is grey.
-                    // So we don't need 'idle' class anymore based on user request.
-                    this.els.predBH.innerText = ""; this.els.predHH.innerText = "";
+                    // Keep existing values if just stopped short, otherwise clear
+                    // Logic handled in activateInput/reset
                 }
             }
 
@@ -794,18 +797,15 @@
                 // Logic: If active timers are ALL too short, don't open tray.
                 // Leave times visible, reset Main Button to START.
                 
+                let abort = false;
                 // Case 1: Both Enabled, both short
-                if (finalState.enabledBH && finalState.enabledHH && bhTooShort && hhTooShort) {
-                     this.setBtnState('start', 'START');
-                     return; 
-                }
+                if (finalState.enabledBH && finalState.enabledHH && bhTooShort && hhTooShort) abort = true;
                 // Case 2: BH Only, BH Short
-                if (finalState.enabledBH && !finalState.enabledHH && bhTooShort) {
-                     this.setBtnState('start', 'START');
-                     return; 
-                }
+                if (finalState.enabledBH && !finalState.enabledHH && bhTooShort) abort = true;
                 // Case 3: HH Only, HH Short
-                if (!finalState.enabledBH && finalState.enabledHH && hhTooShort) {
+                if (!finalState.enabledBH && finalState.enabledHH && hhTooShort) abort = true;
+                
+                if (abort) {
                      this.setBtnState('start', 'START');
                      return; 
                 }
@@ -1101,6 +1101,8 @@
                 // Init UI
                 this.ui.updateProfileUI();
                 this.ui.updateRefTable();
+                // RESET TO CLEAN STATE ON LOAD
+                this.ui.update(this.timer);
             }
 
             reset() {
