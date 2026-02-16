@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Clock-Dilla v25.5</title>
+    <title>Clock-Dilla v25.6</title>
     <style>
         :root {
             /* --- THEME & COLORS --- */
@@ -31,7 +31,9 @@
         /* --- BASE RESET --- */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
         body { margin: 0; padding: 0; background-color: var(--c-bg); color: var(--c-text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        button { border: none; outline: none; background: none; font-family: inherit; }
+        
+        /* Modern way to prevent double-tap zoom while keeping click events working */
+        button { border: none; outline: none; background: none; font-family: inherit; touch-action: manipulation; }
 
         /* --- LAYOUT UTILS --- */
         .flex-center { display: flex; align-items: center; justify-content: center; }
@@ -649,6 +651,7 @@
                         }, 800);
                     };
                     const end = (e) => {
+                        if (e.type === 'touchend') e.preventDefault(); // Prevent ghost mouse events
                         if (this.longPressTimer) {
                             clearTimeout(this.longPressTimer);
                             this.longPressTimer = null;
@@ -666,10 +669,10 @@
                     btn.addEventListener('mouseup', end);
                 });
 
-                // Prevent Zoom
-                document.body.addEventListener('touchstart', (e) => {
+                // Prevent Zoom but NOT clicks (REMOVED)
+                /* document.body.addEventListener('touchstart', (e) => {
                     if (e.target.tagName === 'BUTTON') e.preventDefault(); 
-                }, {passive: false});
+                }, {passive: false}); */
             }
 
             handleAction(action, el) {
