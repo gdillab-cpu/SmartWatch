@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Clock-Dilla v25.9</title>
+    <title>Clock-Dilla v25.11</title>
     <style>
         :root {
             /* --- THEME & COLORS --- */
@@ -29,10 +29,16 @@
         }
 
         /* --- BASE RESET --- */
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
-        body { margin: 0; padding: 0; background-color: var(--c-bg); color: var(--c-text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
         
-        button { border: none; outline: none; background: none; font-family: inherit; touch-action: manipulation; cursor: pointer; }
+        /* PREVENT TEXT SELECTION ON LONG PRESS */
+        body { 
+            margin: 0; padding: 0; background-color: var(--c-bg); color: var(--c-text); 
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden; 
+            user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+        }
+        
+        button { border: none; outline: none; background: none; font-family: inherit; touch-action: manipulation; cursor: pointer; user-select: none; -webkit-user-select: none; }
 
         /* --- LAYOUT UTILS --- */
         .flex-center { display: flex; align-items: center; justify-content: center; }
@@ -50,6 +56,7 @@
         .timer-display {
             flex: 1; background: #222; border-radius: 16px; position: relative;
             display: grid; grid-template-columns: 1fr 1fr;
+            border: 1px solid rgba(10, 132, 255, 0.3); /* LIGHT BLUE OUTLINE */
         }
         /* Vertical Divider */
         .timer-display::after {
@@ -72,12 +79,6 @@
         
         .td-pred { font-size: 18px; font-weight: 800; text-transform: uppercase; margin-top: 10px; min-height: 24px; color: #fff; }
         
-        .btn-reset {
-            position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
-            width: 60px; height: 30px; border-radius: 15px; background: #333;
-            color: #888; font-size: 24px; line-height: 28px; text-align: center; cursor: pointer;
-        }
-
         /* --- 2. CONTROL PANEL --- */
         .control-panel {
             min-height: var(--control-h); flex-shrink: 0; background: var(--c-dark);
@@ -112,13 +113,12 @@
         /* --- 3. INPUT TRAY (The Grid) --- */
         .flash-tray {
             flex: 1; background: #000; padding: 10px; 
-            /* Spacing adjustments for iPhone */
             padding-bottom: calc(var(--safe-bottom) + 190px); 
             display: flex; flex-direction: column; 
             justify-content: flex-start; 
-            padding-top: 6px; /* Minimized Buffer */
+            padding-top: 6px;
             opacity: 0.3; pointer-events: none; transition: opacity 0.2s;
-            overflow-y: auto; /* Enable Scroll if overlap occurs */
+            overflow-y: auto; 
         }
         .flash-tray.active { opacity: 1; pointer-events: auto; }
         
@@ -143,6 +143,9 @@
         .fg-sweep { background: #333; color: #ccc; } 
         .fg-sweep.selected { background: var(--c-purple); border-color: var(--c-purple); color:#fff; }
         .fg-sweep.disabled { opacity: 0.1; pointer-events: none; }
+
+        .fg-discard { background: #111; color: #555; border: 1px dashed #333; font-style: italic; font-size: 10px; }
+        .fg-discard:active { background: #222; color: #888; }
 
         /* --- 4. MAIN ACTION BUTTON --- */
         .controls-area {
@@ -230,7 +233,6 @@
                 <div class="td-val val-hh">--</div>
                 <div class="td-pred" id="pred-hh"></div>
             </div>
-            <div class="btn-reset" data-action="reset">×</div>
         </div>
     </div>
 
@@ -302,7 +304,7 @@
             // 5-Column Grid Layout Map
             gridMap: [
                 {t:'p', id:'Skip'}, {t:'z', n:'High'}, {t:'z', n:'Mid'}, {t:'z', n:'Tight'}, {t:'s', n:'N/A'},
-                {t:'p', id:'3rd'},  {t:'z', n:'T 12'}, {t:'z', n:'T 8'}, {t:'e'},          {t:'s', n:'L'},
+                {t:'p', id:'3rd'},  {t:'z', n:'T 12'}, {t:'z', n:'T 8'}, {t:'d', n:'DISCARD'}, {t:'s', n:'L'},
                 {t:'p', id:'2nd'},  {t:'z', n:'T 4'},  {t:'z', n:'TEE'}, {t:'z', n:'B 4'},  {t:'s', n:'M'},
                 {t:'p', id:'Lead'}, {t:'z', n:'THRU'},{t:'z', n:'B 8'}, {t:'z', n:'B 12'}, {t:'s', n:'H'}
             ],
@@ -466,9 +468,12 @@
             }
 
             addShot(shotData) {
+                // CAPTURE CALIBRATION STATE AT TIME OF SHOT FOR STATIC ERROR PLOTS
                 this.history.unshift({
                     id: Date.now(),
                     ...shotData,
+                    offsetBH: this.iceOffsetBH, 
+                    offsetHH: this.iceOffsetHH,
                     timestamp: new Date().toISOString()
                 });
                 if(this.history.length > 150) this.history.pop();
@@ -504,10 +509,18 @@
 
                     // Weighting Logic
                     let weight = 1.0;
-                    if (index < 4) weight = 1.0;
-                    else if (index < 12) weight = 0.6;
-                    else weight = 0.2;
-                    if (s.actual < 14.0) weight *= 0.5; // Guards
+                    
+                    // Only apply Recency Weighting for H-H. Use Flat weighting for B-H.
+                    if (type === 'HH') {
+                        if (index < 4) weight = 1.0;
+                        else if (index < 12) weight = 0.6;
+                        else weight = 0.2;
+                    } else {
+                        // BH: Flat weighting
+                        weight = 1.0;
+                    }
+
+                    if (s.actual < 14.0) weight *= 0.5; // Guards (applied to both)
 
                     return { error, weight };
                 });
@@ -595,6 +608,7 @@
             }
 
             exportCSV() {
+                const name = prompt("Enter filename:", "curling_data") || "curling_data";
                 let csv = "Pos,B-H,Used,H-H,Used,Result,Sweep\n";
                 this.history.forEach(s => { 
                     const sw = s.sweep ? (s.sweep === 3 ? 'L' : s.sweep === 6 ? 'M' : s.sweep === 9 ? 'H' : 'N/A') : 'N/A';
@@ -602,7 +616,7 @@
                 });
                 const blob = new Blob([csv], { type: 'text/csv' });
                 const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = `curling_data_${Date.now()}.csv`; a.click();
+                const a = document.createElement('a'); a.href = url; a.download = `${name}.csv`; a.click();
             }
         }
 
@@ -718,6 +732,10 @@
                             this.checkCommit();
                         }
                         break;
+                    case 'grid-discard':
+                        this.tempShot = null;
+                        this.els.flashTray.classList.remove('active');
+                        break;
                     case 'open-menu': this.showMenu(); break;
                     case 'close-modal': this.els.modal.classList.remove('open'); break;
                     case 'save-profile':
@@ -743,6 +761,7 @@
                     this.els.valBH.classList.remove('idle'); 
                     // No Live Prediction
                     this.els.predBH.innerText = "";
+                    this.els.predHH.innerText = ""; // Clear HH
                     this.setBtnState('split', 'HOG 1');
                     
                     this.els.valHH.innerText = "--";
@@ -839,11 +858,12 @@
                     if (i.t === 'e') {
                         // empty
                     } else {
-                        b.className = `fg-btn fg-${i.t === 'p' ? 'player' : i.t === 'z' ? 'zone' : 'sweep'}`;
+                        b.className = `fg-btn fg-${i.t === 'p' ? 'player' : i.t === 'z' ? 'zone' : i.t === 's' ? 'sweep' : 'discard'}`;
                         b.innerText = i.n || this.app.session.profiles[i.id];
                         if(i.t==='p') { b.dataset.action = 'grid-player'; b.dataset.id = i.id; b.id = `gp-${i.id}`; }
                         if(i.t==='z') { b.dataset.action = 'grid-zone'; b.dataset.val = CONFIG.zones.find(z=>z.n===i.n).d; b.id = `gz-${i.n}`; }
                         if(i.t==='s') { b.dataset.action = 'grid-sweep'; b.dataset.val = CONFIG.sweeps.find(s=>s.n===i.n).v; b.id = `gs-${i.n}`; }
+                        if(i.t==='d') { b.dataset.action = 'grid-discard'; }
                     }
                     c.appendChild(b);
                 });
@@ -943,6 +963,8 @@
                         <li><button onclick="app.ui.showHistory()">View History</button></li>
                         <li><button onclick="app.ui.showGraph('BH')">Graph (Back-Hog)</button></li>
                         <li><button onclick="app.ui.showGraph('HH')">Graph (Hog-Hog)</button></li>
+                        <li><button onclick="app.ui.showGraph('BH-Error')">Error Plot (BH)</button></li>
+                        <li><button onclick="app.ui.showGraph('HH-Error')">Error Plot (HH)</button></li>
                         <li><button onclick="app.session.exportCSV()" style="color:var(--c-blue); border-color:var(--c-blue)">Export CSV</button></li>
                         <li><button onclick="app.resetData()" style="color:var(--c-red); border-color:var(--c-red)">Clear Data</button></li>
                         <li><button data-action="close-modal" style="color:#666; margin-top:10px;">Close</button></li>
@@ -1020,8 +1042,13 @@
             }
 
             showGraph(type) {
+                const titles = {
+                    'BH': 'Back-to-Hog', 'HH': 'Hog-to-Hog',
+                    'BH-Error': 'BH Error (Feet)', 'HH-Error': 'HH Error (Feet)'
+                };
+                
                 this.els.modalContent.innerHTML = `
-                    <div class="modal-header">${type === 'BH' ? 'Back-to-Hog' : 'Hog-to-Hog'}</div>
+                    <div class="modal-header">${titles[type]}</div>
                     <canvas id="graph-canvas"></canvas>
                     <div class="graph-legend">
                         ${Object.keys(CONFIG.colors).map(k => k!=='-' ? `<div class="legend-item"><span class="dot" style="background:${CONFIG.colors[k]}"></span>${this.app.session.profiles[k] || k}</div>` : '').join('')}
@@ -1038,7 +1065,8 @@
                     canvas.width = rect.width * 2; canvas.height = rect.height * 2;
                     ctx.scale(2, 2);
                     
-                    this.drawGraph(ctx, type, rect.width, rect.height);
+                    if (type.includes('Error')) this.drawErrorGraph(ctx, type, rect.width, rect.height);
+                    else this.drawGraph(ctx, type, rect.width, rect.height);
                 }, 50);
             }
 
@@ -1049,11 +1077,27 @@
                 const mapX = (v) => ((v - xMin) / (xMax - xMin)) * w;
                 const mapY = (v) => h - ((v - yMin) / (yMax - yMin)) * h;
 
-                // Axis
-                ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.fillStyle = '#666'; ctx.font = "10px sans-serif";
-                ctx.beginPath();
-                for(let d=5; d<=30; d+=5) { let y = mapY(d); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.fillText(d+'ft', 2, y-2); }
-                ctx.stroke();
+                // Axis with Specific Labels
+                const labels = ['Mid', 'Tight', 'T 12', 'T 8', 'TEE', 'B 8', 'B 12'];
+                ctx.font = "10px sans-serif";
+                ctx.textAlign = "left";
+                
+                labels.forEach(name => {
+                    // Try to match name exactly or without space
+                    const z = CONFIG.zones.find(z => z.n === name || z.n === name.replace(' ', ''));
+                    if(z) {
+                        let y = mapY(z.d);
+                        // Draw Grid Line
+                        ctx.strokeStyle = '#333'; 
+                        ctx.beginPath(); 
+                        ctx.moveTo(0, y); ctx.lineTo(w, y); 
+                        ctx.stroke();
+                        
+                        // Draw Label
+                        ctx.fillStyle = '#666';
+                        ctx.fillText(name, 2, y - 2); 
+                    }
+                });
 
                 // Calibration Line (Draws Team Baseline)
                 const slope = type === 'BH' ? CONFIG.physics.bhSlope : CONFIG.physics.hhSlope;
@@ -1077,7 +1121,6 @@
 
                     ctx.fillStyle = CONFIG.colors[s.player] || '#666';
                     if(s.player !== '-' && !CONFIG.colors[s.player]) {
-                         // Fallback if player key mismatch
                          ctx.fillStyle = CONFIG.colors[Object.keys(CONFIG.colors).find(k => k === s.player)] || '#666';
                     }
                     
@@ -1085,6 +1128,69 @@
                     ctx.arc(mapX(t), mapY(y), 4, 0, Math.PI*2);
                     ctx.fill();
                 });
+            }
+
+            drawErrorGraph(ctx, type, w, h) {
+                // Plot Error (Y) vs Shot Index (X)
+                // Range Y: -10ft to +10ft
+                const yRange = 10;
+                const shots = this.app.session.history.filter(s => s.actual !== null && (type === 'BH-Error' ? s.useBH : s.useHH));
+                
+                if(shots.length === 0) return;
+
+                const mapX = (idx) => (idx / (shots.length + 1)) * w; // Scale X by number of shots
+                const mapY = (val) => (h/2) - ((val / yRange) * (h/2)); // 0 is center
+
+                // Zero Line
+                ctx.strokeStyle = '#444'; ctx.lineWidth = 1; ctx.beginPath();
+                ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
+                
+                // Grid Lines (+5, -5)
+                ctx.strokeStyle = '#222'; ctx.beginPath();
+                ctx.moveTo(0, mapY(5)); ctx.lineTo(w, mapY(5));
+                ctx.moveTo(0, mapY(-5)); ctx.lineTo(w, mapY(-5));
+                ctx.stroke();
+
+                ctx.fillStyle = '#666'; ctx.font = "10px sans-serif";
+                ctx.fillText("+5ft", 5, mapY(5)-2);
+                ctx.fillText("0", 5, h/2-2);
+                ctx.fillText("-5ft", 5, mapY(-5)-2);
+
+                const slope = type === 'BH-Error' ? CONFIG.physics.bhSlope : CONFIG.physics.hhSlope;
+                const int = type === 'BH-Error' ? CONFIG.physics.bhIntercept : CONFIG.physics.hhIntercept;
+                
+                // Points (Reverse order so oldest is left)
+                for(let i=0; i<shots.length; i++) {
+                    const s = shots[i];
+                    const xIdx = shots.length - i; 
+                    
+                    // Retrieve STATIC offset at time of shot (or fallback to current if legacy data)
+                    const off = (type === 'BH-Error') 
+                        ? (s.offsetBH !== undefined ? s.offsetBH : this.app.session.iceOffsetBH)
+                        : (s.offsetHH !== undefined ? s.offsetHH : this.app.session.iceOffsetHH);
+
+                    const time = type === 'BH-Error' ? s.bh : s.hh;
+                    
+                    // Reconstruct prediction based on calibration AT THAT TIME
+                    const pred = (slope * time) + int + off;
+                    
+                    let act = s.actual;
+                    if(type === 'BH-Error' && s.sweep) act -= s.sweep;
+                    
+                    const err = act - pred; // Positive = Long, Negative = Short
+                    
+                    const cx = mapX(xIdx);
+                    const cy = mapY(err);
+
+                    ctx.fillStyle = CONFIG.colors[s.player] || '#666';
+                    if(s.player !== '-' && !CONFIG.colors[s.player]) {
+                         ctx.fillStyle = CONFIG.colors[Object.keys(CONFIG.colors).find(k => k === s.player)] || '#666';
+                    }
+
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 4, 0, Math.PI*2);
+                    ctx.fill();
+                }
             }
         }
 
