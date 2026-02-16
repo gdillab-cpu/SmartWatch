@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Clock-Dilla v25.5</title>
+    <style>
+        :root {
+            /* --- THEME & COLORS --- */
+            --c-blue: #0A84FF;
+            --c-green: #30D158; 
+            --c-red: #FF453A;
+            --c-orange: #FF9F0A;
+            --c-purple: #BF5AF2;
+            --c-grey: #98989D;
+            --c-dark: #1C1C1E;
+            --c-bg: #000000;
+            --c-text: #FFFFFF;
+            --c-border: #333333;
+            
+            /* --- DIMENSIONS --- */
+            --safe-top: env(safe-area-inset-top, 20px);
+            --safe-bottom: env(safe-area-inset-bottom, 20px);
+            --header-h: 160px;
+            --control-h: 115px;
+        }
+
+        /* --- BASE RESET --- */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+        body { margin: 0; padding: 0; background-color: var(--c-bg); color: var(--c-text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        button { border: none; outline: none; background: none; font-family: inherit; }
+
+        /* --- LAYOUT UTILS --- */
+        .flex-center { display: flex; align-items: center; justify-content: center; }
+        .flex-col { display: flex; flex-direction: column; }
+        .hidden { display: none !important; }
+        .dimmed { opacity: 0.3; pointer-events: none; }
+
+        /* --- 1. TOP BAR (TIMER) --- */
+        .top-bar {
+            height: var(--header-h); flex-shrink: 0;
+            padding: calc(var(--safe-top) + 10px) 10px 10px;
+            background: #121212; border-bottom: 1px solid var(--c-border);
+            display: flex; gap: 8px; z-index: 50;
+        }
+        .timer-display {
+            flex: 1; background: #222; border-radius: 16px; position: relative;
+            display: grid; grid-template-columns: 1fr 1fr;
+        }
+        /* Vertical Divider */
+        .timer-display::after {
+            content: ''; position: absolute; left: 50%; top: 15%; bottom: 15%;
+            width: 1px; background: #333; transform: translateX(-50%);
+        }
+        .td-col {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.2s; cursor: pointer;
+        }
+        
+        /* State: Disabled (Faint Grey) */
+        .td-col.disabled { opacity: 0.3; }
+        .td-col.disabled .td-val { color: #555; } /* Faint grey dashes when disabled */
+
+        .td-lbl { font-size: 11px; color: #666; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+        
+        /* Value Colors: White for active numbers & active dashes */
+        .td-val { font-family: monospace; font-size: 48px; font-weight: 300; line-height: 1; font-variant-numeric: tabular-nums; color: #fff; }
+        
+        .td-pred { font-size: 16px; font-weight: 800; text-transform: uppercase; margin-top: 6px; min-height: 20px; color: #fff; }
+        
+        .btn-reset {
+            position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
+            width: 60px; height: 30px; border-radius: 15px; background: #222;
+            color: #555; font-size: 24px; line-height: 28px; text-align: center; cursor: pointer;
+        }
+
+        /* --- 2. CONTROL PANEL --- */
+        .control-panel {
+            min-height: var(--control-h); flex-shrink: 0; background: var(--c-dark);
+            border-bottom: 1px solid var(--c-border); display: flex;
+        }
+        
+        /* Reference Table Section */
+        .cp-left { flex: 1; display: flex; padding: 6px 0; }
+        .ref-section { width: 60%; padding-left: 8px; border-right: 1px solid var(--c-border); display: flex; flex-direction: column; justify-content: center; }
+        .ref-header { text-align: center; font-size: 11px; color: var(--c-grey); font-weight: 700; margin-bottom: 4px; text-transform: uppercase; }
+        .ref-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .ref-table td { padding: 2px 0; border: none; text-align: center; } /* No lines */
+        .ref-table td:first-child { text-align: left; font-weight: 700; color: #ccc; }
+
+        /* Profile Selection Section */
+        .profile-section { width: 40%; padding: 4px 8px; display: flex; flex-direction: column; gap: 4px; justify-content: center; }
+        .p-row { display: flex; gap: 4px; flex: 1; }
+        .p-btn {
+            flex: 1; background: #252525; border: 1px solid #333; border-radius: 6px;
+            color: #666; font-size: 11px; font-weight: 700; text-transform: uppercase;
+            display: flex; align-items: center; justify-content: center; transition: 0.1s;
+        }
+        .p-btn.active { background: #444; color: #fff; border-color: #999; }
+        
+        /* Menu Button */
+        .menu-strip {
+            width: 50px; background: #252525; border-left: 1px solid var(--c-border);
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+        .menu-text { writing-mode: vertical-rl; transform: rotate(180deg); color: var(--c-grey); font-weight: 800; font-size: 14px; letter-spacing: 2px; }
+
+        /* --- 3. INPUT TRAY (The Grid) --- */
+        .flash-tray {
+            flex: 1; background: #000; padding: 10px; padding-bottom: calc(var(--safe-bottom) + 160px);
+            display: flex; flex-direction: column; justify-content: center;
+            opacity: 0.3; pointer-events: none; transition: opacity 0.2s;
+        }
+        .flash-tray.active { opacity: 1; pointer-events: auto; }
+        
+        .flash-grid {
+            display: grid; grid-template-columns: 20% 1fr 1fr 1fr 15%; grid-template-rows: repeat(4, 55px);
+            gap: 6px; width: 100%;
+        }
+        .fg-btn {
+            border: 1px solid #333; border-radius: 8px;
+            font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center;
+        }
+        .fg-btn:active { transform: scale(0.96); filter: brightness(1.2); }
+        .fg-btn.selected { color: #fff; border-color: currentColor; border-width: 2px; }
+        
+        /* Specific Grid Shading */
+        .fg-player { background: #333; color: #ccc; } 
+        .fg-player.selected { background: var(--c-blue); border-color: var(--c-blue); color:#fff; }
+        
+        .fg-zone { background: #1a1a1a; color: #fff; } 
+        .fg-zone.selected { background: var(--c-green); border-color: var(--c-green); color: #000; }
+        
+        .fg-sweep { background: #333; color: #ccc; } 
+        .fg-sweep.selected { background: var(--c-purple); border-color: var(--c-purple); color:#fff; }
+        .fg-sweep.disabled { opacity: 0.1; pointer-events: none; }
+
+        /* --- 4. MAIN ACTION BUTTON --- */
+        .controls-area {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: rgba(28,28,30,0.95); backdrop-filter: blur(10px);
+            padding: 12px; padding-bottom: max(60px, var(--safe-bottom));
+            border-top: 1px solid var(--c-border); z-index: 100;
+        }
+        #btn-main {
+            width: 100%; height: 150px; border-radius: 22px;
+            font-size: 40px; font-weight: 800; color: white; text-transform: uppercase; letter-spacing: 2px;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+        #btn-main:active { transform: scale(0.98); }
+        
+        /* Dynamic Button States */
+        .btn-state-start { background: var(--c-green); box-shadow: 0 4px 30px rgba(48, 209, 88, 0.3); }
+        .btn-state-split { background: var(--c-blue); box-shadow: 0 4px 30px rgba(10, 132, 255, 0.3); }
+        .btn-state-int { background: var(--c-red); box-shadow: 0 4px 30px rgba(255, 69, 58, 0.3); }
+
+        /* --- 5. MODALS --- */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200;
+            display: none; justify-content: center; align-items: center;
+        }
+        .modal-overlay.open { display: flex; }
+        
+        .modal-card {
+            background: #222; width: 95%; max-width: 400px; max-height: 80vh;
+            border-radius: 16px; border: 1px solid #444; padding: 20px;
+            display: flex; flex-direction: column;
+        }
+        .modal-header { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 1px; text-align: center; margin-bottom: 15px; }
+        
+        .modal-content-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+        /* Generic Modal List */
+        .modal-list { list-style: none; padding: 0; margin: 0; width: 100%; }
+        .modal-list li button {
+            width: 100%; padding: 14px; margin-bottom: 8px; background: #2A2A2A;
+            color: #fff; border: 1px solid #333; border-radius: 8px; font-weight: 700;
+        }
+        
+        /* History Table */
+        .hist-table { width: 100%; font-size: 12px; color: #fff; border-collapse: collapse; }
+        .hist-table th { text-align: center; border-bottom: 1px solid #444; padding: 8px 4px; color: #888; position: sticky; top: 0; background: #222; }
+        .hist-table td { border-bottom: 1px solid #333; padding: 10px 4px; text-align: center; }
+        .h-dim { color: #555; }
+
+        /* Graph Canvas */
+        #graph-canvas { background: #111; width: 100%; height: 250px; border: 1px solid #333; border-radius: 8px; }
+        .graph-legend { display: flex; justify-content: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+        .legend-item { font-size: 10px; font-weight: 700; display: flex; align-items: center; gap: 4px; color: #ccc; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+        /* Rename/Profile Input */
+        .input-rename {
+            width: 100%; background: #333; border: 1px solid #555; color: white; padding: 12px;
+            border-radius: 8px; font-size: 18px; text-transform: uppercase; text-align: center; margin-bottom: 15px; outline: none;
+        }
+        
+        .stat-row { display: flex; justify-content: space-between; font-size: 13px; color: #ccc; padding: 4px 0; border-bottom: 1px solid #333; }
+        .stat-row span:last-child { font-family: monospace; font-weight: 700; color: #fff; }
+        
+        .stepper-row { display: flex; gap: 10px; margin-top: 15px; margin-bottom: 15px; align-items: center; justify-content: center;}
+        .step-btn { flex: 1; height: 40px; background: #333; border-radius: 8px; font-size: 16px; font-weight: 700; color: #ccc; }
+        .step-btn:active { background: #555; color: #fff; }
+        .offset-val { font-family: monospace; font-size: 24px; color: var(--c-green); width: 80px; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <!-- UI: TOP BAR -->
+    <div class="top-bar">
+        <div class="timer-display">
+            <!-- Left: Back-Hog (Toggleable) -->
+            <div class="td-col" id="disp-bh" data-action="toggle-bh">
+                <div class="td-lbl">Back-Hog</div>
+                <div class="td-val val-bh">--</div>
+                <div class="td-pred" id="pred-bh"></div>
+            </div>
+            <!-- Right: Hog-Hog (Toggleable) -->
+            <div class="td-col" id="disp-hh" data-action="toggle-hh">
+                <div class="td-lbl">Hog-Hog</div>
+                <div class="td-val val-hh">--</div>
+                <div class="td-pred" id="pred-hh"></div>
+            </div>
+            <div class="btn-reset" data-action="reset">×</div>
+        </div>
+    </div>
+
+    <!-- UI: CONTROL PANEL -->
+    <div class="control-panel">
+        <div class="cp-left">
+            <div class="ref-section">
+                <div class="ref-header" id="ref-header">Live Ice Speeds</div>
+                <table class="ref-table" id="ref-table">
+                    <!-- Populated by JS -->
+                </table>
+            </div>
+            <div class="profile-section" id="profile-container">
+                <div class="p-row">
+                    <button class="p-btn" id="btn-Skip" data-id="Skip">SKIP</button>
+                    <button class="p-btn" id="btn-3rd" data-id="3rd">3RD</button>
+                </div>
+                <div class="p-row">
+                    <button class="p-btn" id="btn-2nd" data-id="2nd">2ND</button>
+                    <button class="p-btn" id="btn-Lead" data-id="Lead">LEAD</button>
+                </div>
+            </div>
+        </div>
+        <div class="menu-strip" data-action="open-menu">
+            <div class="menu-text">MENU</div>
+        </div>
+    </div>
+
+    <!-- UI: FLASH INPUT TRAY -->
+    <div class="flash-tray" id="flash-tray">
+        <div class="flash-grid" id="flash-grid">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <!-- UI: FOOTER ACTION -->
+    <div class="controls-area">
+        <button id="btn-main" class="btn-state-start" data-action="main-btn">START</button>
+    </div>
+
+    <!-- MODALS (Generic Container) -->
+    <div class="modal-overlay" id="modal-overlay">
+        <!-- Content injected dynamically -->
+        <div class="modal-card" id="modal-content"></div>
+    </div>
+
+    <script>
+        /** * =========================================
+         * 1. CONFIGURATION
+         * =========================================
+         */
+        const CONFIG = {
+            physics: {
+                bhSlope: -30.0, bhIntercept: 139.5,
+                hhSlope: -5.4, hhIntercept: 98.0,
+            },
+            limits: {
+                minBH: 2.0, maxBH: 6.0, autoHog: 5.5,
+                minHH: 7.0, maxHH: 22.0, timeout: 19.0
+            },
+            zones: [
+                {v: 1.0, n: "High", d: 2.5}, {v: 2.0, n: "Mid", d: 7.5}, {v: 3.0, n: "Tight", d: 12.5},
+                {v: 4.0, n: "T 12", d: 15.5}, {v: 5.0, n: "T 8", d: 17.5}, {v: 6.0, n: "T 4", d: 19.5},
+                {v: 7.0, n: "TEE", d: 21.0},
+                {v: 8.0, n: "B 4", d: 22.5}, {v: 9.0, n: "B 8", d: 24.5}, {v: 10.0, n: "B 12", d: 26.5},
+                {v: 10.5, n: "THRU", d: 29.75}, {v: 11.0, n: "Hack", d: 33.0}, {v: 11.5, n: "Board", d: 39.0}
+            ],
+            sweeps: [ {n:'N/A', v:0}, {n:'L', v:3}, {n:'M', v:6}, {n:'H', v:9} ],
+            // 5-Column Grid Layout Map
+            gridMap: [
+                {t:'p', id:'Skip'}, {t:'z', n:'High'}, {t:'z', n:'Mid'}, {t:'z', n:'Tight'}, {t:'s', n:'N/A'},
+                {t:'p', id:'3rd'},  {t:'z', n:'T 12'}, {t:'z', n:'T 8'}, {t:'e'},          {t:'s', n:'L'},
+                {t:'p', id:'2nd'},  {t:'z', n:'T 4'},  {t:'z', n:'TEE'}, {t:'z', n:'B 4'},  {t:'s', n:'M'},
+                {t:'p', id:'Lead'}, {t:'z', n:'THRU'},{t:'z', n:'B 8'}, {t:'z', n:'B 12'}, {t:'s', n:'H'},
+                {t:'e'}, {t:'e'}, {t:'z', n:'Hack'}, {t:'z', n:'Board'}, {t:'e'}
+            ],
+            colors: { 'Skip': '#FF453A', '3rd': '#FF9F0A', '2nd': '#0A84FF', 'Lead': '#30D158', '-': '#98989D' }
+        };
+
+        /**
+         * =========================================
+         * 2. STOPWATCH CLASS (Logic Only)
+         * =========================================
+         */
+        class Stopwatch {
+            constructor() {
+                this.state = 'IDLE'; // IDLE, RUNNING, INTERVAL, FINISHED
+                this.t0 = 0; // Start Time
+                this.t1 = 0; // Hog Time
+                this.splitBH = 0;
+                this.splitHH = 0;
+                this.enabledBH = true; 
+                this.enabledHH = true;
+                this.rafId = null;
+                this.onTick = null; // Callback for UI updates
+                this.onFinish = null; // Callback when timer stops
+            }
+
+            reset() {
+                this.stop();
+                this.state = 'IDLE';
+                this.splitBH = 0;
+                this.splitHH = 0;
+                if(this.onTick) this.onTick(this);
+            }
+
+            mainAction() {
+                const now = Date.now();
+                
+                if (this.state === 'IDLE' || this.state === 'FINISHED') {
+                    // Start
+                    if(!this.enabledBH) {
+                         // Direct to HH interval
+                         this.state = 'INTERVAL';
+                         this.t1 = now;
+                         this.startLoop();
+                    } else {
+                         this.state = 'RUNNING';
+                         this.t0 = now;
+                         this.startLoop();
+                    }
+                } 
+                else if (this.state === 'RUNNING') {
+                    // Split at Hog 1
+                    this.t1 = now;
+                    this.splitBH = (this.t1 - this.t0) / 1000;
+                    
+                    if (this.splitBH > CONFIG.limits.autoHog) {
+                        // Auto-Hog logic: The click was actually the FIRST hog line
+                        this.splitBH = 0; // Invalidate BH
+                        this.t0 = 0;
+                        if(this.enabledHH) {
+                            this.state = 'INTERVAL';
+                        } else {
+                            // If HH is disabled and we Auto-Hogged, we just finish (nothing to time)
+                            this.finish();
+                        }
+                    } else {
+                        // Normal Split
+                        if(this.enabledHH) {
+                            this.state = 'INTERVAL';
+                        } else {
+                            this.finish();
+                        }
+                    }
+                } 
+                else if (this.state === 'INTERVAL') {
+                    // Split at Hog 2
+                    this.splitHH = (now - this.t1) / 1000;
+                    this.finish();
+                }
+            }
+
+            startLoop() {
+                if(this.rafId) cancelAnimationFrame(this.rafId);
+                const loop = () => {
+                    const now = Date.now();
+                    
+                    if (this.state === 'RUNNING') {
+                        const cur = (now - this.t0) / 1000;
+                        if(this.onTick) this.onTick({ ...this, liveBH: cur });
+                        
+                        // Auto-Hog Transition (Visual only, logic handled in click)
+                        if (cur > CONFIG.limits.autoHog) {
+                            this.state = 'INTERVAL';
+                            this.t1 = this.t0; // Treat start as T1
+                            this.t0 = 0;
+                            this.splitBH = 0;
+                        }
+                    } 
+                    else if (this.state === 'INTERVAL') {
+                        const cur = (now - this.t1) / 1000;
+                        if(this.onTick) this.onTick({ ...this, liveHH: cur });
+                        
+                        // Timeout
+                        if (cur > CONFIG.limits.timeout) {
+                            this.finish();
+                        }
+                    }
+                    
+                    if(this.state !== 'IDLE' && this.state !== 'FINISHED') {
+                        this.rafId = requestAnimationFrame(loop);
+                    }
+                };
+                this.rafId = requestAnimationFrame(loop);
+            }
+
+            stop() {
+                if(this.rafId) cancelAnimationFrame(this.rafId);
+            }
+
+            finish() {
+                this.state = 'FINISHED';
+                this.stop();
+                if (this.onFinish) this.onFinish(this);
+            }
+        }
+
+        /**
+         * =========================================
+         * 3. SESSION MANAGER (Data & Stats)
+         * =========================================
+         */
+        class Session {
+            constructor() {
+                this.history = [];
+                this.profiles = { 'Skip':'SKIP', '3rd':'3RD', '2nd':'2ND', 'Lead':'LEAD' };
+                this.manualOffsets = { 'Skip':0, '3rd':0, '2nd':0, 'Lead':0 };
+                this.activeProfile = 'TEAM';
+                this.iceOffsetBH = 0; // TEAM calibration
+                this.iceOffsetHH = 0; // TEAM calibration
+                this.load();
+            }
+
+            load() {
+                const d = localStorage.getItem('cd_v25');
+                if(d) {
+                    const parsed = JSON.parse(d);
+                    this.history = parsed.history || [];
+                    this.profiles = parsed.profiles || this.profiles;
+                    this.manualOffsets = parsed.manualOffsets || this.manualOffsets;
+                    this.recalcStats();
+                }
+            }
+
+            save() {
+                const d = { 
+                    history: this.history, 
+                    profiles: this.profiles,
+                    manualOffsets: this.manualOffsets
+                };
+                localStorage.setItem('cd_v25', JSON.stringify(d));
+                this.recalcStats();
+            }
+
+            addShot(shotData) {
+                this.history.unshift({
+                    id: Date.now(),
+                    ...shotData,
+                    timestamp: new Date().toISOString()
+                });
+                if(this.history.length > 150) this.history.pop();
+                this.save(); // Triggers recalcStats
+            }
+
+            recalcStats() {
+                this.iceOffsetBH = this.calculateSmartOffset('BH');
+                this.iceOffsetHH = this.calculateSmartOffset('HH');
+            }
+
+            // Calculate TEAM offset (Mean Error)
+            calculateSmartOffset(type) {
+                const validShots = this.history.filter(s => {
+                    if (type === 'BH') return s.useBH && s.actual !== null;
+                    if (type === 'HH') return s.useHH && s.actual !== null;
+                    return false;
+                });
+
+                if (validShots.length === 0) return 0; // Instant feedback on 1st shot
+
+                // 1. Calculate Errors & Assign Weights
+                const dataPoints = validShots.map((s, index) => {
+                    const slope = type === 'BH' ? CONFIG.physics.bhSlope : CONFIG.physics.hhSlope;
+                    const intercept = type === 'BH' ? CONFIG.physics.bhIntercept : CONFIG.physics.hhIntercept;
+                    const time = type === 'BH' ? s.bh : s.hh;
+                    const rawPred = (slope * time) + intercept;
+                    
+                    let adjustedActual = s.actual;
+                    if (type === 'BH' && s.sweep) adjustedActual -= s.sweep; 
+
+                    const error = adjustedActual - rawPred;
+
+                    // Weighting Logic
+                    let weight = 1.0;
+                    if (index < 4) weight = 1.0;
+                    else if (index < 12) weight = 0.6;
+                    else weight = 0.2;
+                    if (s.actual < 14.0) weight *= 0.5; // Guards
+
+                    return { error, weight };
+                });
+
+                // 2. Initial Weighted Mean
+                const stats1 = this.getWeightedStats(dataPoints);
+                
+                // 3. Outlier Rejection (> 2 SD)
+                const cleanData = dataPoints.filter(d => {
+                    if (stats1.sd === 0) return true;
+                    return Math.abs(d.error - stats1.mean) <= (2 * stats1.sd);
+                });
+
+                if (cleanData.length === 0) return stats1.mean;
+
+                // 4. Final Weighted Mean
+                const stats2 = this.getWeightedStats(cleanData);
+                return stats2.mean;
+            }
+
+            getWeightedStats(data) {
+                let sumW = 0; let sumValW = 0;
+                data.forEach(d => { sumW += d.weight; sumValW += (d.error * d.weight); });
+                if (sumW === 0) return { mean: 0, sd: 0 };
+                const mean = sumValW / sumW;
+
+                let sumSqDiffW = 0;
+                data.forEach(d => { sumSqDiffW += (Math.pow(d.error - mean, 2) * d.weight); });
+                return { mean, sd: Math.sqrt(sumSqDiffW / sumW) };
+            }
+
+            // Get Prediction with Active Profile Offset
+            getPrediction(type, time) {
+                const slope = type === 'BH' ? CONFIG.physics.bhSlope : CONFIG.physics.hhSlope;
+                const int = type === 'BH' ? CONFIG.physics.bhIntercept : CONFIG.physics.hhIntercept;
+                
+                // Base Team Offset
+                let offset = type === 'BH' ? this.iceOffsetBH : this.iceOffsetHH;
+                
+                // Apply Manual Offset if active profile is not TEAM
+                if(this.activeProfile !== 'TEAM' && this.manualOffsets[this.activeProfile]) {
+                    if(type === 'BH') offset += (this.manualOffsets[this.activeProfile] * slope); 
+                }
+                
+                // Calculate Dist
+                const dist = (slope * time) + int + offset;
+                
+                // Clamp Board Weight prediction
+                // Board is 39.0. If prediction is > 42 (Board + 3ft), return null (too fast/unrealistic)
+                if (dist > 42.0) return null;
+
+                if(type === 'BH') {
+                    if(time < CONFIG.limits.minBH) return null;
+                    return dist;
+                }
+                if(type === 'HH') {
+                    if(time < CONFIG.limits.minHH) return null;
+                    return dist;
+                }
+                return null;
+            }
+
+            // Helper for Modal Stats
+            getPlayerMeanError(profileId) {
+                const shots = this.history.filter(s => s.player === profileId && s.useBH && s.actual !== null);
+                if (shots.length === 0) return 0;
+                let sumErr = 0;
+                shots.forEach(s => {
+                    const pred = (CONFIG.physics.bhSlope * s.bh) + CONFIG.physics.bhIntercept; // Raw
+                    const act = s.actual - (s.sweep||0);
+                    sumErr += (act - pred);
+                });
+                return sumErr / shots.length;
+            }
+
+            renameProfile(id, newName) {
+                if(!newName) return;
+                this.profiles[id] = newName.substring(0, 5).toUpperCase();
+                this.save();
+            }
+            
+            setManualOffset(id, val) {
+                this.manualOffsets[id] = parseFloat(val.toFixed(2));
+                this.save();
+            }
+
+            exportCSV() {
+                let csv = "Pos,B-H,Used,H-H,Used,Result,Sweep\n";
+                this.history.forEach(s => { 
+                    const sw = s.sweep ? (s.sweep === 3 ? 'L' : s.sweep === 6 ? 'M' : s.sweep === 9 ? 'H' : 'N/A') : 'N/A';
+                    csv += `${s.player},${s.bh.toFixed(2)},${s.useBH},${s.hh.toFixed(2)},${s.useHH},${s.actual},${sw}\n`; 
+                });
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `curling_data_${Date.now()}.csv`; a.click();
+            }
+        }
+
+        /**
+         * =========================================
+         * 4. UI CONTROLLER (View)
+         * =========================================
+         */
+        class UI {
+            constructor(app) {
+                this.app = app;
+                this.els = {
+                    btnMain: document.getElementById('btn-main'),
+                    valBH: document.querySelector('.val-bh'),
+                    valHH: document.querySelector('.val-hh'),
+                    predBH: document.getElementById('pred-bh'),
+                    predHH: document.getElementById('pred-hh'),
+                    flashTray: document.getElementById('flash-tray'),
+                    refTable: document.getElementById('ref-table'),
+                    modal: document.getElementById('modal-overlay'),
+                    modalContent: document.getElementById('modal-content')
+                };
+                
+                this.tempShot = null; 
+                this.longPressTimer = null;
+                this.tempOffset = 0;
+                
+                this.renderGrid();
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                // Global Click
+                document.body.addEventListener('click', (e) => {
+                    const target = e.target.closest('[data-action]');
+                    if(!target) return;
+                    this.handleAction(target.dataset.action, target);
+                });
+
+                // Long Press for Profile Buttons
+                ['Skip','3rd','2nd','Lead'].forEach(id => {
+                    const btn = document.getElementById(`btn-${id}`);
+                    if(!btn) return;
+                    
+                    const start = (e) => {
+                        this.longPressTimer = setTimeout(() => {
+                            this.longPressTimer = null;
+                            this.showProfileModal(id);
+                        }, 800);
+                    };
+                    const end = (e) => {
+                        if (this.longPressTimer) {
+                            clearTimeout(this.longPressTimer);
+                            this.longPressTimer = null;
+                            // Normal Click Action
+                            const isAlreadyActive = this.app.session.activeProfile === id;
+                            this.app.session.activeProfile = isAlreadyActive ? 'TEAM' : id;
+                            this.updateProfileUI();
+                            this.updateRefTable();
+                        }
+                    };
+                    
+                    btn.addEventListener('touchstart', start, {passive:true});
+                    btn.addEventListener('touchend', end);
+                    btn.addEventListener('mousedown', start);
+                    btn.addEventListener('mouseup', end);
+                });
+
+                // Prevent Zoom
+                document.body.addEventListener('touchstart', (e) => {
+                    if (e.target.tagName === 'BUTTON') e.preventDefault(); 
+                }, {passive: false});
+            }
+
+            handleAction(action, el) {
+                switch(action) {
+                    case 'main-btn': this.app.timer.mainAction(); break;
+                    case 'reset': this.app.reset(); break;
+                    case 'toggle-bh': 
+                        this.app.timer.enabledBH = !this.app.timer.enabledBH;
+                        // Toggle UI immediately
+                        document.getElementById('disp-bh').classList.toggle('disabled', !this.app.timer.enabledBH);
+                        this.update(this.app.timer);
+                        break;
+                    case 'toggle-hh': 
+                        this.app.timer.enabledHH = !this.app.timer.enabledHH;
+                        document.getElementById('disp-hh').classList.toggle('disabled', !this.app.timer.enabledHH);
+                        this.update(this.app.timer);
+                        break;
+                    case 'grid-player':
+                        if(this.tempShot) {
+                            this.tempShot.player = (this.tempShot.player === el.dataset.id) ? 'TEAM' : el.dataset.id;
+                            this.highlightGrid();
+                        }
+                        break;
+                    case 'grid-zone':
+                        if(this.tempShot) {
+                            this.tempShot.actual = parseFloat(el.dataset.val);
+                            this.checkCommit();
+                        }
+                        break;
+                    case 'grid-sweep':
+                        if(this.tempShot) {
+                            this.tempShot.sweep = parseInt(el.dataset.val);
+                            this.checkCommit();
+                        }
+                        break;
+                    case 'open-menu': this.showMenu(); break;
+                    case 'close-modal': this.els.modal.classList.remove('open'); break;
+                    case 'save-profile':
+                        const val = document.getElementById('rename-input').value;
+                        this.app.session.renameProfile(el.dataset.id, val);
+                        this.app.session.setManualOffset(el.dataset.id, this.tempOffset);
+                        this.updateProfileUI();
+                        this.renderGrid(); 
+                        this.updateRefTable();
+                        this.els.modal.classList.remove('open');
+                        break;
+                    case 'adj-offset':
+                        this.tempOffset += parseFloat(el.dataset.val);
+                        document.getElementById('offset-val').innerText = (this.tempOffset > 0 ? "+" : "") + this.tempOffset.toFixed(2);
+                        break;
+                }
+            }
+
+            update(timerState) {
+                // Update Numeric Displays
+                if (timerState.state === 'RUNNING') {
+                    this.els.valBH.innerText = timerState.liveBH.toFixed(2);
+                    this.els.valBH.classList.remove('idle'); 
+                    // No Live Prediction
+                    this.els.predBH.innerText = "";
+                    this.setBtnState('split', 'HOG 1');
+                    
+                    this.els.valHH.innerText = "--";
+                    this.els.valHH.classList.add('idle'); // Revert to Idle Grey
+                } 
+                else if (timerState.state === 'INTERVAL') {
+                    this.els.valHH.innerText = timerState.liveHH.toFixed(2);
+                    this.els.valHH.classList.remove('idle');
+                    // No Live Prediction
+                    this.els.predHH.innerText = "";
+                    this.setBtnState('int', 'HOG 2');
+
+                    // If BH was skipped or invalid
+                    if(timerState.splitBH === 0) {
+                        this.els.valBH.innerText = "--";
+                        this.els.valBH.classList.add('idle');
+                    }
+                }
+                else if (timerState.state === 'IDLE') {
+                    this.setBtnState('start', 'START');
+                    this.els.valBH.innerText = "--"; 
+                    this.els.valHH.innerText = "--"; 
+                    // Only add idle class if enabled (to show white vs grey)
+                    // Actually, .disabled handles the grey opacity, so default is white.
+                    // But we want 'dashes' to be distinct if active.
+                    // The CSS rules: .td-val is white. .td-col.disabled .td-val is grey.
+                    // So we don't need 'idle' class anymore based on user request.
+                    this.els.predBH.innerText = ""; this.els.predHH.innerText = "";
+                }
+            }
+
+            predict(type, time) {
+                const dist = this.app.session.getPrediction(type, time);
+                const el = type === 'BH' ? this.els.predBH : this.els.predHH;
+                
+                if (dist === null) { el.innerText = ""; return; }
+                
+                let label = "?"; let min = 99;
+                CONFIG.zones.forEach(z => {
+                    const diff = Math.abs(z.d - dist);
+                    if(diff < min) { min = diff; label = z.n; }
+                });
+                el.innerText = label;
+            }
+
+            activateInput(finalState) {
+                // Display predictions for the final static times
+                if(finalState.enabledBH) this.predict('BH', finalState.splitBH);
+                if(finalState.enabledHH) this.predict('HH', finalState.splitHH);
+
+                // INPUT FILTERING: Check if times are realistic
+                const bhValid = finalState.enabledBH && finalState.splitBH >= CONFIG.limits.minBH;
+                const hhValid = finalState.enabledHH && finalState.splitHH >= CONFIG.limits.minHH;
+
+                // If both enabled but both invalid, or single enabled and invalid -> Reset to "Stop" state visually (button ready to start)
+                const bhTooShort = finalState.enabledBH && finalState.splitBH < CONFIG.limits.minBH;
+                const hhTooShort = finalState.enabledHH && finalState.splitHH < CONFIG.limits.minHH;
+                
+                // Logic: If active timers are ALL too short, don't open tray.
+                // Leave times visible, reset Main Button to START.
+                
+                // Case 1: Both Enabled, both short
+                if (finalState.enabledBH && finalState.enabledHH && bhTooShort && hhTooShort) {
+                     this.setBtnState('start', 'START');
+                     return; 
+                }
+                // Case 2: BH Only, BH Short
+                if (finalState.enabledBH && !finalState.enabledHH && bhTooShort) {
+                     this.setBtnState('start', 'START');
+                     return; 
+                }
+                // Case 3: HH Only, HH Short
+                if (!finalState.enabledBH && finalState.enabledHH && hhTooShort) {
+                     this.setBtnState('start', 'START');
+                     return; 
+                }
+                
+                // If we got here, at least one time is valid enough to record
+                this.tempShot = {
+                    player: this.app.session.activeProfile,
+                    bh: finalState.splitBH,
+                    hh: finalState.splitHH,
+                    useBH: bhValid && (finalState.splitBH < CONFIG.limits.maxBH),
+                    useHH: hhValid && (finalState.splitHH < CONFIG.limits.maxHH),
+                    actual: null,
+                    sweep: null
+                };
+                
+                this.setBtnState('start', 'START');
+                this.els.flashTray.classList.add('active');
+                this.highlightGrid();
+            }
+
+            renderGrid() {
+                const c = document.getElementById('flash-grid');
+                c.innerHTML = '';
+                CONFIG.gridMap.forEach(i => {
+                    const b = document.createElement('div');
+                    if (i.t === 'e') {
+                        // empty
+                    } else {
+                        b.className = `fg-btn fg-${i.t === 'p' ? 'player' : i.t === 'z' ? 'zone' : 'sweep'}`;
+                        b.innerText = i.n || this.app.session.profiles[i.id];
+                        if(i.t==='p') { b.dataset.action = 'grid-player'; b.dataset.id = i.id; b.id = `gp-${i.id}`; }
+                        if(i.t==='z') { b.dataset.action = 'grid-zone'; b.dataset.val = CONFIG.zones.find(z=>z.n===i.n).d; b.id = `gz-${i.n}`; }
+                        if(i.t==='s') { b.dataset.action = 'grid-sweep'; b.dataset.val = CONFIG.sweeps.find(s=>s.n===i.n).v; b.id = `gs-${i.n}`; }
+                    }
+                    c.appendChild(b);
+                });
+            }
+
+            highlightGrid() {
+                document.querySelectorAll('.fg-btn').forEach(b => b.classList.remove('selected', 'disabled'));
+                
+                if(!this.tempShot) return;
+
+                if(this.tempShot.player !== 'TEAM') {
+                    const el = document.getElementById(`gp-${this.tempShot.player}`);
+                    if(el) el.classList.add('selected');
+                }
+
+                if(this.tempShot.actual !== null) {
+                    const z = CONFIG.zones.find(z => z.d === this.tempShot.actual);
+                    if(z) document.getElementById(`gz-${z.n}`).classList.add('selected');
+                }
+                if(this.tempShot.sweep !== null) {
+                    const s = CONFIG.sweeps.find(s => s.v === this.tempShot.sweep);
+                    if(s) document.getElementById(`gs-${s.n}`).classList.add('selected');
+                }
+
+                if (!this.tempShot.useBH) {
+                    document.querySelectorAll('.fg-sweep').forEach(b => b.classList.add('disabled'));
+                }
+            }
+
+            checkCommit() {
+                if(!this.tempShot) return;
+                
+                const needsSweep = this.tempShot.useBH; 
+                const hasZone = this.tempShot.actual !== null;
+                const hasSweep = this.tempShot.sweep !== null;
+
+                if (hasZone && (!needsSweep || hasSweep)) {
+                    // Update highlight one last time to ensure final sweep selection is visible
+                    this.highlightGrid(); 
+                    
+                    this.app.session.addShot(this.tempShot);
+                    this.tempShot = null;
+                    this.els.flashTray.classList.remove('active');
+                    this.updateRefTable();
+                } else {
+                    this.highlightGrid();
+                }
+            }
+
+            setBtnState(state, text) {
+                this.els.btnMain.className = '';
+                this.els.btnMain.classList.add(`btn-state-${state}`);
+                this.els.btnMain.innerText = text;
+            }
+
+            updateProfileUI() {
+                ['Skip','3rd','2nd','Lead'].forEach(id => {
+                    const btn = document.getElementById(`btn-${id}`);
+                    btn.innerText = this.app.session.profiles[id];
+                    btn.classList.toggle('active', id === this.app.session.activeProfile);
+                });
+                const pName = this.app.session.activeProfile === 'TEAM' ? 'TEAM' : this.app.session.profiles[this.app.session.activeProfile];
+                document.getElementById('ref-header').innerText = `Live Ice Speeds (${pName})`;
+            }
+
+            updateRefTable() {
+                const tbl = this.els.refTable;
+                tbl.innerHTML = '';
+                const rows = [11.0, 10.0, 7.0, 4.0, 2.0]; // Hack, B12, Tee, T12, Mid
+                
+                // Calculate Manual Offset in Distance (Approx)
+                let extraOffset = 0;
+                if(this.app.session.activeProfile !== 'TEAM') {
+                     const sec = this.app.session.manualOffsets[this.app.session.activeProfile] || 0;
+                     extraOffset = sec * CONFIG.physics.bhSlope;
+                }
+
+                rows.forEach(zoneVal => {
+                    const z = CONFIG.zones.find(x => x.v === zoneVal);
+                    if(!z) return;
+                    
+                    const dist = z.d;
+                    const bhTime = (dist - CONFIG.physics.bhIntercept - this.app.session.iceOffsetBH - extraOffset) / CONFIG.physics.bhSlope;
+                    const hhTime = (dist - CONFIG.physics.hhIntercept - this.app.session.iceOffsetHH) / CONFIG.physics.hhSlope;
+                    
+                    const color = z.n === 'TEE' ? 'var(--c-green)' : '#fff';
+                    tbl.innerHTML += `<tr style="color:${color}"><td>${z.n}</td><td>${bhTime.toFixed(2)}</td><td>${hhTime.toFixed(2)}</td></tr>`;
+                });
+            }
+
+            /* --- MENU & MODALS --- */
+
+            showMenu() {
+                this.els.modalContent.innerHTML = `
+                    <div class="modal-header">Menu</div>
+                    <ul class="modal-list">
+                        <li><button onclick="app.ui.showHistory()">View History</button></li>
+                        <li><button onclick="app.ui.showGraph('BH')">Graph (Back-Hog)</button></li>
+                        <li><button onclick="app.ui.showGraph('HH')">Graph (Hog-Hog)</button></li>
+                        <li><button onclick="app.session.exportCSV()" style="color:var(--c-blue); border-color:var(--c-blue)">Export CSV</button></li>
+                        <li><button onclick="app.resetData()" style="color:var(--c-red); border-color:var(--c-red)">Clear Data</button></li>
+                        <li><button data-action="close-modal" style="color:#666; margin-top:10px;">Close</button></li>
+                    </ul>
+                `;
+                this.els.modal.classList.add('open');
+            }
+
+            showHistory() {
+                let rows = '';
+                this.app.session.history.forEach(s => {
+                    const sw = s.sweep ? (s.sweep === 3 ? 'L' : s.sweep === 6 ? 'M' : s.sweep === 9 ? 'H' : '-') : '-';
+                    const res = CONFIG.zones.find(z => z.d === s.actual)?.n || '-';
+                    const pName = s.player === 'TEAM' ? '-' : (this.app.session.profiles[s.player] || s.player).substring(0,4);
+                    
+                    rows += `<tr>
+                        <td>${pName}</td>
+                        <td class="${!s.useBH ? 'h-dim':''}">${s.bh.toFixed(2)}</td>
+                        <td class="${!s.useHH ? 'h-dim':''}">${s.hh.toFixed(2)}</td>
+                        <td>${res}</td>
+                        <td class="h-dim">${sw}</td>
+                    </tr>`;
+                });
+
+                this.els.modalContent.innerHTML = `
+                    <div class="modal-header">History</div>
+                    <div class="modal-content-scroll">
+                        <table class="hist-table">
+                            <thead><tr><th>Ply</th><th>BH</th><th>HH</th><th>Res</th><th>Sw</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                    <button data-action="close-modal" style="width:100%; padding:14px; margin-top:10px; background:transparent; border:1px solid #444; color:#666; border-radius:8px;">Close</button>
+                `;
+                this.els.modal.classList.add('open');
+            }
+
+            showProfileModal(id) {
+                const currentName = this.app.session.profiles[id];
+                this.tempOffset = this.app.session.manualOffsets[id] || 0;
+                
+                // Calculations for Stats
+                // 1. Team Tee Time
+                const teamTee = (21.0 - CONFIG.physics.bhIntercept - this.app.session.iceOffsetBH) / CONFIG.physics.bhSlope;
+                
+                // 2. Player Tee Time
+                // Get player mean error
+                const pErr = this.app.session.getPlayerMeanError(id);
+                // Note: The "Player" time uses the player's specific historical error, completely ignoring manual offset for now
+                // This shows how they actually performed vs the team line
+                const pTee = (21.0 - CONFIG.physics.bhIntercept - pErr) / CONFIG.physics.bhSlope;
+                
+                const diff = pTee - teamTee;
+                const sign = diff > 0 ? "+" : "";
+                
+                this.els.modalContent.innerHTML = `
+                    <div class="modal-header">Profile: ${currentName}</div>
+                    <input id="rename-input" class="input-rename" value="${currentName}" maxlength="5" />
+                    
+                    <div class="stat-row"><span>Team Tee:</span><span>${teamTee.toFixed(2)}s</span></div>
+                    <div class="stat-row"><span>Player Tee:</span><span>${pTee.toFixed(2)}s</span></div>
+                    <div class="stat-row" style="margin-bottom:20px;"><span>Difference:</span><span style="color:${diff===0?'#fff':diff>0?'var(--c-red)':'var(--c-green)'}">${sign}${diff.toFixed(2)}s</span></div>
+                    
+                    <div style="text-align:center; font-size:12px; color:#888; text-transform:uppercase;">Manual Offset (Applied)</div>
+                    <div class="stepper-row">
+                        <button class="step-btn" data-action="adj-offset" data-val="-0.01">-0.01</button>
+                        <div class="offset-val" id="offset-val">${(this.tempOffset>0?"+":"")+this.tempOffset.toFixed(2)}</div>
+                        <button class="step-btn" data-action="adj-offset" data-val="0.01">+0.01</button>
+                    </div>
+
+                    <button class="p-btn" data-action="save-profile" data-id="${id}" style="height:50px; background:var(--c-green); color:#000; font-size:16px;">SAVE</button>
+                    <button data-action="close-modal" style="width:100%; padding:14px; margin-top:10px; background:transparent; border:1px solid #444; color:#666; border-radius:8px;">Cancel</button>
+                `;
+                this.els.modal.classList.add('open');
+            }
+
+            showGraph(type) {
+                this.els.modalContent.innerHTML = `
+                    <div class="modal-header">${type === 'BH' ? 'Back-to-Hog' : 'Hog-to-Hog'}</div>
+                    <canvas id="graph-canvas"></canvas>
+                    <div class="graph-legend">
+                        ${Object.keys(CONFIG.colors).map(k => k!=='-' ? `<div class="legend-item"><span class="dot" style="background:${CONFIG.colors[k]}"></span>${this.app.session.profiles[k] || k}</div>` : '').join('')}
+                    </div>
+                    <button data-action="close-modal" style="width:100%; padding:14px; margin-top:10px; background:transparent; border:1px solid #444; color:#666; border-radius:8px;">Close</button>
+                `;
+                this.els.modal.classList.add('open');
+                
+                // Draw Graph
+                setTimeout(() => {
+                    const canvas = document.getElementById('graph-canvas');
+                    const ctx = canvas.getContext('2d');
+                    const rect = canvas.getBoundingClientRect();
+                    canvas.width = rect.width * 2; canvas.height = rect.height * 2;
+                    ctx.scale(2, 2);
+                    
+                    this.drawGraph(ctx, type, rect.width, rect.height);
+                }, 50);
+            }
+
+            drawGraph(ctx, type, w, h) {
+                const xMin = type === 'BH' ? 3.5 : 13.0; const xMax = type === 'BH' ? 4.6 : 17.5;
+                const yMin = 5; const yMax = 30;
+                
+                const mapX = (v) => ((v - xMin) / (xMax - xMin)) * w;
+                const mapY = (v) => h - ((v - yMin) / (yMax - yMin)) * h;
+
+                // Axis
+                ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.fillStyle = '#666'; ctx.font = "10px sans-serif";
+                ctx.beginPath();
+                for(let d=5; d<=30; d+=5) { let y = mapY(d); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.fillText(d+'ft', 2, y-2); }
+                ctx.stroke();
+
+                // Calibration Line (Draws Team Baseline)
+                const slope = type === 'BH' ? CONFIG.physics.bhSlope : CONFIG.physics.hhSlope;
+                const int = type === 'BH' ? CONFIG.physics.bhIntercept : CONFIG.physics.hhIntercept;
+                const off = type === 'BH' ? this.app.session.iceOffsetBH : this.app.session.iceOffsetHH;
+                
+                ctx.strokeStyle = 'cyan'; ctx.lineWidth = 2; ctx.beginPath();
+                ctx.moveTo(0, mapY((slope * xMin) + int + off));
+                ctx.lineTo(w, mapY((slope * xMax) + int + off));
+                ctx.stroke();
+
+                // Points
+                this.app.session.history.forEach(s => {
+                    if(!s.actual) return;
+                    let t = type === 'BH' ? s.bh : s.hh;
+                    if(t < xMin || t > xMax) return;
+                    
+                    // Adjust Y for BH sweep
+                    let y = s.actual;
+                    if(type === 'BH' && s.sweep) y -= s.sweep;
+
+                    ctx.fillStyle = CONFIG.colors[s.player] || '#666';
+                    if(s.player !== '-' && !CONFIG.colors[s.player]) {
+                         // Fallback if player key mismatch
+                         ctx.fillStyle = CONFIG.colors[Object.keys(CONFIG.colors).find(k => k === s.player)] || '#666';
+                    }
+                    
+                    ctx.beginPath();
+                    ctx.arc(mapX(t), mapY(y), 4, 0, Math.PI*2);
+                    ctx.fill();
+                });
+            }
+        }
+
+        /**
+         * =========================================
+         * 5. APP INIT (Glue)
+         * =========================================
+         */
+        class App {
+            constructor() {
+                this.session = new Session();
+                this.timer = new Stopwatch();
+                this.ui = new UI(this);
+                
+                // Connect Timer Logic to UI
+                this.timer.onTick = (t) => this.ui.update(t);
+                this.timer.onFinish = (t) => this.ui.activateInput(t);
+                
+                // Init UI
+                this.ui.updateProfileUI();
+                this.ui.updateRefTable();
+            }
+
+            reset() {
+                this.timer.reset();
+                this.ui.els.flashTray.classList.remove('active');
+                this.ui.update(this.timer);
+            }
+            
+            resetData() {
+                if(confirm("Delete all history?")) {
+                    this.session.history = [];
+                    this.session.iceOffsetBH = 0;
+                    this.session.iceOffsetHH = 0;
+                    this.session.manualOffsets = { 'Skip':0, '3rd':0, '2nd':0, 'Lead':0 };
+                    this.session.save();
+                    this.ui.updateRefTable();
+                    this.ui.handleAction('close-modal');
+                }
+            }
+        }
+
+        // Start
+        const app = new App();
+
+    </script>
+</body>
+</html>
