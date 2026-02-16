@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Clock-Dilla v25.7</title>
+    <title>Clock-Dilla v25.9</title>
     <style>
         :root {
             /* --- THEME & COLORS --- */
@@ -24,7 +24,7 @@
             /* --- DIMENSIONS --- */
             --safe-top: env(safe-area-inset-top, 20px);
             --safe-bottom: env(safe-area-inset-bottom, 20px);
-            --header-h: 220px; /* INCREASED HEIGHT */
+            --header-h: 220px; 
             --control-h: 115px;
         }
 
@@ -112,11 +112,13 @@
         /* --- 3. INPUT TRAY (The Grid) --- */
         .flash-tray {
             flex: 1; background: #000; padding: 10px; 
-            padding-bottom: calc(var(--safe-bottom) + 160px);
+            /* Spacing adjustments for iPhone */
+            padding-bottom: calc(var(--safe-bottom) + 190px); 
             display: flex; flex-direction: column; 
-            justify-content: flex-start; /* MOVED TO TOP */
-            padding-top: 20px; /* Space from control panel */
+            justify-content: flex-start; 
+            padding-top: 6px; /* Minimized Buffer */
             opacity: 0.3; pointer-events: none; transition: opacity 0.2s;
+            overflow-y: auto; /* Enable Scroll if overlap occurs */
         }
         .flash-tray.active { opacity: 1; pointer-events: auto; }
         
@@ -302,8 +304,7 @@
                 {t:'p', id:'Skip'}, {t:'z', n:'High'}, {t:'z', n:'Mid'}, {t:'z', n:'Tight'}, {t:'s', n:'N/A'},
                 {t:'p', id:'3rd'},  {t:'z', n:'T 12'}, {t:'z', n:'T 8'}, {t:'e'},          {t:'s', n:'L'},
                 {t:'p', id:'2nd'},  {t:'z', n:'T 4'},  {t:'z', n:'TEE'}, {t:'z', n:'B 4'},  {t:'s', n:'M'},
-                {t:'p', id:'Lead'}, {t:'z', n:'THRU'},{t:'z', n:'B 8'}, {t:'z', n:'B 12'}, {t:'s', n:'H'},
-                {t:'e'}, {t:'e'}, {t:'z', n:'Hack'}, {t:'z', n:'Board'}, {t:'e'}
+                {t:'p', id:'Lead'}, {t:'z', n:'THRU'},{t:'z', n:'B 8'}, {t:'z', n:'B 12'}, {t:'s', n:'H'}
             ],
             colors: { 'Skip': '#FF453A', '3rd': '#FF9F0A', '2nd': '#0A84FF', 'Lead': '#30D158', '-': '#98989D' }
         };
@@ -750,7 +751,7 @@
                 else if (timerState.state === 'INTERVAL') {
                     this.els.valHH.innerText = timerState.liveHH.toFixed(2);
                     this.els.valHH.classList.remove('idle');
-                    // No Live Prediction
+                    // No Live Prediction for HH currently running
                     this.els.predHH.innerText = "";
                     this.setBtnState('int', 'HOG 2');
 
@@ -758,6 +759,10 @@
                     if(timerState.splitBH === 0) {
                         this.els.valBH.innerText = "--";
                         this.els.valBH.classList.add('idle');
+                    } else {
+                        // IMMEDIATE B-H PREDICTION
+                        // Time is stopped, show estimate
+                        this.predict('BH', timerState.splitBH);
                     }
                 }
                 else if (timerState.state === 'IDLE') {
