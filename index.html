@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Clock-Dilla v25.14</title>
+    <title>Clock-Dilla v25.21</title>
     <style>
         :root {
             /* --- THEME & COLORS --- */
@@ -29,7 +29,7 @@
         }
 
         /* --- BASE RESET --- */
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Roboto", sans-serif; }
         
         /* PREVENT TEXT SELECTION ON LONG PRESS */
         body { 
@@ -74,8 +74,15 @@
 
         .td-lbl { font-size: 11px; color: #666; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
         
-        /* Value Colors */
-        .td-val { font-family: monospace; font-size: 56px; font-weight: 300; line-height: 1; font-variant-numeric: tabular-nums; color: #fff; }
+        /* Value Colors - Reverted to 48px */
+        .td-val { 
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; 
+            font-size: 48px; 
+            font-weight: 300; 
+            line-height: 1; 
+            font-variant-numeric: tabular-nums; 
+            color: #fff; 
+        }
         
         .td-pred { font-size: 18px; font-weight: 800; text-transform: uppercase; margin-top: 10px; min-height: 24px; color: #fff; }
         
@@ -302,12 +309,12 @@
                 {v: 10.5, n: "THRU", d: 29.75}, {v: 11.0, n: "Hack", d: 33.0}, {v: 11.5, n: "Board", d: 39.0}
             ],
             sweeps: [ {n:'N/A', v:0}, {n:'L', v:3}, {n:'M', v:6}, {n:'H', v:9} ],
-            // 5-Column Grid Layout Map (SWAPPED B4/B8)
+            // 5-Column Grid Layout Map (SWAPPED B4/B8 - Corrected)
             gridMap: [
                 {t:'p', id:'Skip'}, {t:'z', n:'High'}, {t:'z', n:'Mid'}, {t:'z', n:'Tight'}, {t:'s', n:'N/A'},
                 {t:'p', id:'3rd'},  {t:'z', n:'T 12'}, {t:'z', n:'T 8'}, {t:'d', n:'DISCARD'}, {t:'s', n:'L'},
-                {t:'p', id:'2nd'},  {t:'z', n:'T 4'},  {t:'z', n:'TEE'}, {t:'z', n:'B 4'},  {t:'s', n:'M'},
-                {t:'p', id:'Lead'}, {t:'z', n:'THRU'},{t:'z', n:'B 8'}, {t:'z', n:'B 12'}, {t:'s', n:'H'}
+                {t:'p', id:'2nd'},  {t:'z', n:'T 4'},  {t:'z', n:'TEE'}, {t:'z', n:'B 8'},  {t:'s', n:'M'},
+                {t:'p', id:'Lead'}, {t:'z', n:'THRU'},{t:'z', n:'B 4'}, {t:'z', n:'B 12'}, {t:'s', n:'H'}
             ],
             colors: { 'Skip': '#FF453A', '3rd': '#FF9F0A', '2nd': '#0A84FF', 'Lead': '#30D158', '-': '#98989D' }
         };
@@ -714,6 +721,7 @@
                 this.tempShot = null; 
                 this.longPressTimer = null;
                 this.tempOffset = 0;
+                this.lastActionTime = 0; // Debounce tracking
                 
                 this.renderGrid();
                 this.bindEvents();
@@ -736,16 +744,21 @@
                 // MAIN BUTTON: INSTANT TRIGGER
                 const btnMain = document.getElementById('btn-main');
                 if(btnMain) {
+                    // Mobile: Instant start
                     btnMain.addEventListener('touchstart', (e) => {
                         e.preventDefault(); 
                         this.handleAction('main-btn', btnMain);
                     }, {passive: false});
+                    
+                    // Desktop: Instant start (mousedown)
+                    btnMain.addEventListener('mousedown', (e) => {
+                        this.handleAction('main-btn', btnMain);
+                    });
                 }
 
                 // Modal Close on Overlay Click
                 this.els.modal.addEventListener('click', (e) => {
                     if(e.target === this.els.modal) {
-                        // Logic: Sub -> Menu -> Close
                         if(this.els.modal.dataset.view === 'sub') this.showMenu();
                         else this.els.modal.classList.remove('open');
                     }
@@ -780,8 +793,13 @@
             }
 
             handleAction(action, el) {
+                const now = Date.now();
+                if (now - this.lastActionTime < 200) return; // 200ms global cooldown
+                this.lastActionTime = now;
+
                 switch(action) {
                     case 'main-btn': this.app.timer.mainAction(); break;
+                    case 'reset': this.app.reset(); break;
                     case 'toggle-bh': 
                         this.app.timer.enabledBH = !this.app.timer.enabledBH;
                         document.getElementById('disp-bh').classList.toggle('disabled', !this.app.timer.enabledBH);
@@ -867,30 +885,36 @@
                     this.setBtnState('split', 'HOG 1');
                     
                     this.els.valHH.innerText = "--";
-                    this.els.valHH.classList.add('idle'); 
+                    this.els.valHH.classList.add('idle'); // Revert to Idle Grey
                 } 
                 else if (timerState.state === 'INTERVAL') {
                     this.els.valHH.innerText = timerState.liveHH.toFixed(2);
                     this.els.valHH.classList.remove('idle');
+                    // No Live Prediction for HH currently running
                     this.els.predHH.innerText = "";
                     this.setBtnState('int', 'HOG 2');
 
+                    // If BH was skipped or invalid
                     if(timerState.splitBH === 0) {
                         this.els.valBH.innerText = "--";
                         this.els.valBH.classList.add('idle');
                     } else {
                         // IMMEDIATE B-H PREDICTION
+                        // Time is stopped, show estimate
                         this.predict('BH', timerState.splitBH);
                     }
                 }
                 else if (timerState.state === 'IDLE') {
                     this.setBtnState('start', 'START');
+                    // Keep existing values if just stopped short, otherwise clear
+                    // Logic handled in activateInput/reset
                 }
             }
 
             predict(type, time) {
                 const dist = this.app.session.getPrediction(type, time);
                 const el = type === 'BH' ? this.els.predBH : this.els.predHH;
+                
                 if (dist === null) { el.innerText = ""; return; }
                 
                 let label = "?"; let min = 99;
@@ -902,29 +926,41 @@
             }
 
             activateInput(finalState) {
+                // Display predictions for the final static times
                 if(finalState.enabledBH) this.predict('BH', finalState.splitBH);
                 if(finalState.enabledHH && finalState.splitHH > 0) this.predict('HH', finalState.splitHH);
 
-                // INPUT FILTERING
+                // INPUT FILTERING: Check if times are realistic
+                const bhValid = finalState.enabledBH && finalState.splitBH >= CONFIG.limits.minBH;
+                const hhValid = finalState.enabledHH && finalState.splitHH >= CONFIG.limits.minHH;
+
+                // If both enabled but both invalid, or single enabled and invalid -> Reset to "Stop" state visually (button ready to start)
                 const bhTooShort = finalState.enabledBH && finalState.splitBH < CONFIG.limits.minBH;
-                const hhInvalid = finalState.enabledHH && finalState.splitHH < CONFIG.limits.minHH;
+                const hhTooShort = finalState.enabledHH && finalState.splitHH < CONFIG.limits.minHH;
+                
+                // Logic: If active timers are ALL too short, don't open tray.
+                // Leave times visible, reset Main Button to START.
                 
                 let abort = false;
-                if (finalState.enabledBH && finalState.enabledHH && bhTooShort && hhInvalid) abort = true;
+                // Case 1: Both Enabled, both short
+                if (finalState.enabledBH && finalState.enabledHH && bhTooShort && hhTooShort) abort = true;
+                // Case 2: BH Only, BH Short
                 if (finalState.enabledBH && !finalState.enabledHH && bhTooShort) abort = true;
-                if (!finalState.enabledBH && finalState.enabledHH && hhInvalid) abort = true;
+                // Case 3: HH Only, HH Short
+                if (!finalState.enabledBH && finalState.enabledHH && hhTooShort) abort = true;
                 
                 if (abort) {
                      this.setBtnState('start', 'START');
                      return; 
                 }
                 
+                // If we got here, at least one time is valid enough to record
                 this.tempShot = {
                     player: this.app.session.activeProfile,
                     bh: finalState.splitBH,
                     hh: finalState.splitHH,
-                    useBH: finalState.enabledBH && (finalState.splitBH >= CONFIG.limits.minBH && finalState.splitBH < CONFIG.limits.maxBH),
-                    useHH: finalState.enabledHH && (finalState.splitHH >= CONFIG.limits.minHH && finalState.splitHH < CONFIG.limits.maxHH),
+                    useBH: bhValid && (finalState.splitBH < CONFIG.limits.maxBH),
+                    useHH: hhValid && (finalState.splitHH < CONFIG.limits.maxHH),
                     actual: null,
                     sweep: null
                 };
@@ -985,6 +1021,7 @@
                 const hasSweep = this.tempShot.sweep !== null;
 
                 if (hasZone && (!needsSweep || hasSweep)) {
+                    // Update highlight one last time to ensure final sweep selection is visible
                     this.highlightGrid(); 
                     
                     this.app.session.addShot(this.tempShot);
@@ -1017,6 +1054,7 @@
                 tbl.innerHTML = '';
                 const rows = [11.0, 10.0, 7.0, 4.0, 2.0]; // Hack, B12, Tee, T12, Mid
                 
+                // Calculate Manual Offset in Distance (Approx)
                 let extraOffset = 0;
                 if(this.app.session.activeProfile !== 'TEAM') {
                      const sec = this.app.session.manualOffsets[this.app.session.activeProfile] || 0;
