@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Clock-Dilla v25.21</title>
+    <title>Clock-Dilla v25.35</title>
     <style>
         :root {
             /* --- THEME & COLORS --- */
@@ -74,7 +74,7 @@
 
         .td-lbl { font-size: 11px; color: #666; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
         
-        /* Value Colors - Reverted to 48px */
+        /* Value Colors */
         .td-val { 
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; 
             font-size: 48px; 
@@ -94,7 +94,7 @@
         
         /* Reference Table Section */
         .cp-left { flex: 1; display: flex; padding: 6px 0; }
-        .ref-section { width: 60%; padding-left: 8px; border-right: 1px solid var(--c-border); display: flex; flex-direction: column; justify-content: center; }
+        .ref-section { width: 60%; padding-left: 8px; border-right: 1px solid var(--c-border); display: flex; flex-direction: column; justify-content: center; transition: width 0.2s; }
         .ref-header { text-align: center; font-size: 11px; color: var(--c-grey); font-weight: 700; margin-bottom: 4px; text-transform: uppercase; }
         .ref-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .ref-table td { padding: 2px 0; border: none; text-align: center; } 
@@ -110,11 +110,48 @@
         }
         .p-btn.active { background: #444; color: #fff; border-color: #999; }
         
-        /* Menu Button */
+        /* Menu Button Split */
         .menu-strip {
             width: 50px; background: #252525; border-left: 1px solid var(--c-border);
-            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            display: flex; flex-direction: column; /* Split vertically */
+            align-items: center; justify-content: center; 
+            padding: 0;
+            overflow: visible; 
+            z-index: 60;
         }
+        .mode-toggle {
+            /* Fixed height at top, abutting cells */
+            flex: 0 0 50px; 
+            width: 100%; display: flex; align-items: center; justify-content: center;
+            border-bottom: 1px solid #333; cursor: pointer;
+            position: relative;
+            background: #1c1c1e;
+            overflow: hidden;
+        }
+        
+        /* SVG ICON STYLES */
+        .mode-icon-svg {
+            width: 32px; height: 32px;
+            display: block;
+            transition: all 0.2s ease;
+        }
+        /* Nerd: Scaled up to fill */
+        .mode-icon-svg.nerd {
+             transform: scale(1.4); 
+             filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+        }
+        /* Cool: Scaled up to fill */
+        .mode-icon-svg.cool {
+            transform: scale(1.4);
+        }
+
+        .menu-trigger {
+            /* Fills remaining height */
+            flex: 1; 
+            width: 100%; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; position: relative; z-index: 5; background: #252525;
+        }
+
         .menu-text { writing-mode: vertical-rl; transform: rotate(180deg); color: var(--c-grey); font-weight: 800; font-size: 14px; letter-spacing: 2px; }
 
         /* --- 3. INPUT TRAY (The Grid) --- */
@@ -130,7 +167,10 @@
         .flash-tray.active { opacity: 1; pointer-events: auto; }
         
         .flash-grid {
-            display: grid; grid-template-columns: 20% 1fr 1fr 1fr 15%; grid-template-rows: repeat(4, 55px);
+            display: grid; 
+            /* Default Data Mode: 5 Columns */
+            grid-template-columns: 20% 1fr 1fr 1fr 15%; 
+            grid-template-rows: repeat(4, 55px);
             gap: 6px; width: 100%;
         }
         .fg-btn {
@@ -222,6 +262,14 @@
         .step-btn { flex: 1; height: 40px; background: #333; border-radius: 8px; font-size: 16px; font-weight: 700; color: #ccc; }
         .step-btn:active { background: #555; color: #fff; }
         .offset-val { font-family: monospace; font-size: 24px; color: var(--c-green); width: 80px; text-align: center; }
+
+        /* === SIMPLE MODE STYLES === */
+        body.simple-mode .profile-section { display: none; }
+        body.simple-mode .ref-section { width: 100%; border-right: none; }
+        body.simple-mode .flash-grid {
+            /* 4 Columns: Remove Player Col */
+            grid-template-columns: 1fr 1fr 1fr 15%;
+        }
     </style>
 </head>
 <body>
@@ -264,8 +312,14 @@
                 </div>
             </div>
         </div>
-        <div class="menu-strip" data-action="open-menu">
-            <div class="menu-text">MENU</div>
+        <!-- Split Menu Strip -->
+        <div class="menu-strip">
+            <div class="mode-toggle" data-action="toggle-mode" id="mode-icon">
+                <!-- Injected via JS -->
+            </div>
+            <div class="menu-trigger" data-action="open-menu">
+                <div class="menu-text">MENU</div>
+            </div>
         </div>
     </div>
 
@@ -278,7 +332,7 @@
 
     <!-- UI: FOOTER ACTION -->
     <div class="controls-area">
-        <button id="btn-main" class="btn-state-start">START</button>
+        <button id="btn-main" class="btn-state-start" data-action="main-btn">START</button>
     </div>
 
     <!-- MODALS (Generic Container) -->
@@ -309,14 +363,39 @@
                 {v: 10.5, n: "THRU", d: 29.75}, {v: 11.0, n: "Hack", d: 33.0}, {v: 11.5, n: "Board", d: 39.0}
             ],
             sweeps: [ {n:'N/A', v:0}, {n:'L', v:3}, {n:'M', v:6}, {n:'H', v:9} ],
-            // 5-Column Grid Layout Map (SWAPPED B4/B8 - Corrected)
+            
+            // 5-Column Grid Layout Map
+            // B8 (Index 13), B4 (Index 17)
             gridMap: [
                 {t:'p', id:'Skip'}, {t:'z', n:'High'}, {t:'z', n:'Mid'}, {t:'z', n:'Tight'}, {t:'s', n:'N/A'},
                 {t:'p', id:'3rd'},  {t:'z', n:'T 12'}, {t:'z', n:'T 8'}, {t:'d', n:'DISCARD'}, {t:'s', n:'L'},
                 {t:'p', id:'2nd'},  {t:'z', n:'T 4'},  {t:'z', n:'TEE'}, {t:'z', n:'B 8'},  {t:'s', n:'M'},
                 {t:'p', id:'Lead'}, {t:'z', n:'THRU'},{t:'z', n:'B 4'}, {t:'z', n:'B 12'}, {t:'s', n:'H'}
             ],
-            colors: { 'Skip': '#FF453A', '3rd': '#FF9F0A', '2nd': '#0A84FF', 'Lead': '#30D158', '-': '#98989D' }
+            colors: { 'Skip': '#FF453A', '3rd': '#FF9F0A', '2nd': '#0A84FF', 'Lead': '#30D158', '-': '#98989D' },
+            
+            icons: {
+                // DATA MODE ICON (Nerd)
+                data: `<svg class="mode-icon-svg nerd" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="#B0B0B0"/>
+  <g fill="none" stroke="#505050" stroke-width="5">
+    <circle cx="22" cy="28" r="10" />
+    <circle cx="42" cy="28" r="10" />
+    <path d="M32 28 h0" stroke-linecap="round"/> </g>
+  <g fill="#505050">
+    <circle cx="22" cy="28" r="4"/>
+    <circle cx="42" cy="28" r="4"/>
+  </g>
+  <path d="M22 46 Q32 54 42 46" fill="none" stroke="#505050" stroke-width="3" stroke-linecap="round"/>
+  <path d="M32 58 L24 54 V62 Z M32 58 L40 54 V62 Z" fill="#505050"/>
+</svg>`,
+                // SIMPLE MODE ICON (Cool)
+                simple: `<svg class="mode-icon-svg cool" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="#B0B0B0"/>
+  <path d="M10 24 H54 L53 35 Q53 43 44 43 H35 L32 33 L29 43 H20 Q11 43 11 35 Z" fill="#505050"/>
+  <path d="M30 52 Q38 54 44 48" fill="none" stroke="#505050" stroke-width="3" stroke-linecap="round"/>
+</svg>`
+            }
         };
 
         /**
@@ -715,7 +794,8 @@
                     flashTray: document.getElementById('flash-tray'),
                     refTable: document.getElementById('ref-table'),
                     modal: document.getElementById('modal-overlay'),
-                    modalContent: document.getElementById('modal-content')
+                    modalContent: document.getElementById('modal-content'),
+                    modeIcon: document.getElementById('mode-icon')
                 };
                 
                 this.tempShot = null; 
@@ -725,6 +805,7 @@
                 
                 this.renderGrid();
                 this.bindEvents();
+                this.updateLayoutForMode();
             }
 
             bindEvents() {
@@ -810,6 +891,11 @@
                         document.getElementById('disp-hh').classList.toggle('disabled', !this.app.timer.enabledHH);
                         this.update(this.app.timer);
                         break;
+                    case 'toggle-mode':
+                        this.app.mode = (this.app.mode === 'DATA') ? 'SIMPLE' : 'DATA';
+                        localStorage.setItem('cd_mode_v25', this.app.mode);
+                        this.updateLayoutForMode();
+                        break;
                     case 'grid-player':
                         if(this.tempShot) {
                             this.tempShot.player = (this.tempShot.player === el.dataset.id) ? 'TEAM' : el.dataset.id;
@@ -872,6 +958,20 @@
                         }
                         break;
                 }
+            }
+
+            updateLayoutForMode() {
+                if (this.app.mode === 'SIMPLE') {
+                    document.body.classList.add('simple-mode');
+                    this.els.modeIcon.innerHTML = CONFIG.icons.simple;
+                    this.app.session.activeProfile = 'TEAM'; // Force team profile
+                    this.updateProfileUI();
+                } else {
+                    document.body.classList.remove('simple-mode');
+                    this.els.modeIcon.innerHTML = CONFIG.icons.data;
+                }
+                this.renderGrid();
+                this.updateRefTable();
             }
 
             update(timerState) {
@@ -973,7 +1073,11 @@
             renderGrid() {
                 const c = document.getElementById('flash-grid');
                 c.innerHTML = '';
+                
                 CONFIG.gridMap.forEach(i => {
+                    // IF SIMPLE MODE, SKIP 'p' (Player) items
+                    if (this.app.mode === 'SIMPLE' && i.t === 'p') return;
+
                     const b = document.createElement('div');
                     if (i.t === 'e') {
                         // empty
@@ -1040,6 +1144,12 @@
             }
 
             updateProfileUI() {
+                // If simple mode, force ref header text
+                if (this.app.mode === 'SIMPLE') {
+                    document.getElementById('ref-header').innerText = 'Live Ice Speeds';
+                    return;
+                }
+
                 ['Skip','3rd','2nd','Lead'].forEach(id => {
                     const btn = document.getElementById(`btn-${id}`);
                     btn.innerText = this.app.session.profiles[id];
@@ -1078,20 +1188,35 @@
 
             showMenu() {
                 this.els.modal.dataset.view = 'menu';
-                this.els.modalContent.innerHTML = `
-                    <div class="modal-header">Menu</div>
-                    <ul class="modal-list">
-                        <li><button onclick="app.ui.showHistory()">View History</button></li>
-                        <li><button onclick="app.ui.showGraph('BH')">Graph (Back-Hog)</button></li>
-                        <li><button onclick="app.ui.showGraph('HH')">Graph (Hog-Hog)</button></li>
-                        <li><button onclick="app.ui.showGraph('BH-Error')">Error Plot (BH)</button></li>
-                        <li><button onclick="app.ui.showGraph('HH-Error')">Error Plot (HH)</button></li>
-                        <li><button data-action="open-archives" style="color:var(--c-orange); border-color:var(--c-orange)">Saved Games</button></li>
-                        <li><button data-action="do-export" style="color:var(--c-blue); border-color:var(--c-blue)">Save & Export</button></li>
-                        <li><button onclick="app.resetData()" style="color:var(--c-red); border-color:var(--c-red)">Clear Data</button></li>
-                        <li><button data-action="close-modal" style="color:#666; margin-top:10px;">Close</button></li>
-                    </ul>
-                `;
+                
+                // SIMPLE MODE MENU
+                if (this.app.mode === 'SIMPLE') {
+                    this.els.modalContent.innerHTML = `
+                        <div class="modal-header">Menu (Simple)</div>
+                        <ul class="modal-list">
+                            <li><button data-action="open-archives" style="color:var(--c-orange); border-color:var(--c-orange)">Saved Games</button></li>
+                            <li><button data-action="do-export" style="color:var(--c-blue); border-color:var(--c-blue)">Save & Export</button></li>
+                            <li><button onclick="app.resetData()" style="color:var(--c-red); border-color:var(--c-red)">Clear Data</button></li>
+                            <li><button data-action="close-modal" style="color:#666; margin-top:10px;">Close</button></li>
+                        </ul>
+                    `;
+                } else {
+                    // DATA MODE MENU
+                    this.els.modalContent.innerHTML = `
+                        <div class="modal-header">Menu</div>
+                        <ul class="modal-list">
+                            <li><button onclick="app.ui.showHistory()">View History</button></li>
+                            <li><button onclick="app.ui.showGraph('BH')">Graph (Back-Hog)</button></li>
+                            <li><button onclick="app.ui.showGraph('HH')">Graph (Hog-Hog)</button></li>
+                            <li><button onclick="app.ui.showGraph('BH-Error')">Error Plot (BH)</button></li>
+                            <li><button onclick="app.ui.showGraph('HH-Error')">Error Plot (HH)</button></li>
+                            <li><button data-action="open-archives" style="color:var(--c-orange); border-color:var(--c-orange)">Saved Games</button></li>
+                            <li><button data-action="do-export" style="color:var(--c-blue); border-color:var(--c-blue)">Save & Export</button></li>
+                            <li><button onclick="app.resetData()" style="color:var(--c-red); border-color:var(--c-red)">Clear Data</button></li>
+                            <li><button data-action="close-modal" style="color:#666; margin-top:10px;">Close</button></li>
+                        </ul>
+                    `;
+                }
                 this.els.modal.classList.add('open');
             }
 
@@ -1337,6 +1462,8 @@
                 this.session = new Session();
                 this.timer = new Stopwatch();
                 this.ui = new UI(this);
+                this.mode = localStorage.getItem('cd_mode_v25') || 'SIMPLE';
+                this.ui.updateLayoutForMode();
                 
                 // Connect Timer Logic to UI
                 this.timer.onTick = (t) => this.ui.update(t);
