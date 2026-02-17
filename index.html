@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Clock-Dilla v25.12</title>
+    <title>Clock-Dilla v25.14</title>
     <style>
         :root {
             /* --- THEME & COLORS --- */
@@ -302,7 +302,7 @@
                 {v: 10.5, n: "THRU", d: 29.75}, {v: 11.0, n: "Hack", d: 33.0}, {v: 11.5, n: "Board", d: 39.0}
             ],
             sweeps: [ {n:'N/A', v:0}, {n:'L', v:3}, {n:'M', v:6}, {n:'H', v:9} ],
-            // 5-Column Grid Layout Map
+            // 5-Column Grid Layout Map (SWAPPED B4/B8)
             gridMap: [
                 {t:'p', id:'Skip'}, {t:'z', n:'High'}, {t:'z', n:'Mid'}, {t:'z', n:'Tight'}, {t:'s', n:'N/A'},
                 {t:'p', id:'3rd'},  {t:'z', n:'T 12'}, {t:'z', n:'T 8'}, {t:'d', n:'DISCARD'}, {t:'s', n:'L'},
@@ -440,6 +440,7 @@
         class Session {
             constructor() {
                 this.history = [];
+                this.archives = [];
                 this.profiles = { 'Skip':'SKIP', '3rd':'3RD', '2nd':'2ND', 'Lead':'LEAD' };
                 this.manualOffsets = { 'Skip':0, '3rd':0, '2nd':0, 'Lead':0 };
                 this.activeProfile = 'TEAM';
@@ -455,20 +456,65 @@
                 if(d) {
                     const parsed = JSON.parse(d);
                     this.history = parsed.history || [];
+                    this.archives = parsed.archives || [];
                     this.profiles = parsed.profiles || this.profiles;
                     this.manualOffsets = parsed.manualOffsets || this.manualOffsets;
+                    
+                    // If archives is empty, ensure the sample game exists
+                    if (this.archives.length === 0) this.createSampleArchive();
+                    
                     this.recalcStats();
+                } else {
+                    // New Install
+                    this.createSampleArchive();
+                    this.save();
                 }
             }
 
             save() {
                 const d = { 
                     history: this.history, 
+                    archives: this.archives,
                     profiles: this.profiles,
                     manualOffsets: this.manualOffsets
                 };
                 localStorage.setItem('cd_v25', JSON.stringify(d));
                 this.recalcStats();
+            }
+
+            createSampleArchive() {
+                // Hardcoded data from 2025 Brier Semifinal Gushue
+                const sampleGame = {
+                    id: 1739720000000,
+                    name: "Sample: 2025 Brier Semifinal",
+                    date: "2025-03-08",
+                    profiles: { 'Skip':'SKIP', '3rd':'3RD', '2nd':'2ND', 'Lead':'LEAD' },
+                    history: [
+                        { id: 1, player: '3rd', bh: 4.31, hh: 14.84, useBH: true, useHH: true, actual: 17.5, sweep: 3, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T19:00:00Z" },
+                        { id: 2, player: 'Skip', bh: 4.04, hh: 14.81, useBH: true, useHH: true, actual: 19.5, sweep: 3, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T19:05:00Z" },
+                        { id: 3, player: '-', bh: 4.04, hh: 14.27, useBH: true, useHH: true, actual: 21.0, sweep: 0, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T19:10:00Z" },
+                        { id: 4, player: '-', bh: 4.04, hh: 14.47, useBH: true, useHH: true, actual: 17.5, sweep: 0, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T19:15:00Z" },
+                        { id: 5, player: '-', bh: 4.29, hh: 14.20, useBH: true, useHH: true, actual: 19.5, sweep: 6, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T19:20:00Z" },
+                        { id: 6, player: '2nd', bh: 4.34, hh: 14.94, useBH: true, useHH: true, actual: 17.5, sweep: 3, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T19:25:00Z" },
+                        { id: 7, player: '-', bh: 4.39, hh: 15.18, useBH: true, useHH: true, actual: 15.5, sweep: 6, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T19:30:00Z" },
+                        { id: 8, player: '3rd', bh: 4.11, hh: 13.87, useBH: true, useHH: true, actual: 21.0, sweep: 0, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T19:35:00Z" },
+                        { id: 9, player: 'Skip', bh: 4.16, hh: 14.80, useBH: true, useHH: true, actual: 17.5, sweep: 6, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T19:40:00Z" },
+                        { id: 10, player: '-', bh: 4.29, hh: 14.48, useBH: true, useHH: true, actual: 19.5, sweep: 3, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T19:45:00Z" },
+                        { id: 11, player: '2nd', bh: 4.29, hh: 15.41, useBH: true, useHH: true, actual: 15.5, sweep: 6, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T19:50:00Z" },
+                        { id: 12, player: '-', bh: 4.27, hh: 15.50, useBH: true, useHH: true, actual: 17.5, sweep: 9, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T19:55:00Z" },
+                        { id: 13, player: '3rd', bh: 4.37, hh: 14.08, useBH: true, useHH: true, actual: 22.5, sweep: 9, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T20:00:00Z" },
+                        { id: 14, player: '-', bh: 4.08, hh: 13.97, useBH: true, useHH: true, actual: 26.5, sweep: 6, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T20:05:00Z" },
+                        { id: 15, player: 'Skip', bh: 3.99, hh: 13.94, useBH: true, useHH: true, actual: 24.5, sweep: 3, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T20:10:00Z" },
+                        { id: 16, player: '-', bh: 3.99, hh: 14.43, useBH: true, useHH: true, actual: 19.5, sweep: 0, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T20:15:00Z" },
+                        { id: 17, player: '-', bh: 4.25, hh: 14.17, useBH: true, useHH: true, actual: 22.5, sweep: 0, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T20:20:00Z" },
+                        { id: 18, player: '-', bh: 4.36, hh: 14.34, useBH: true, useHH: true, actual: 19.5, sweep: 0, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T20:25:00Z" },
+                        { id: 19, player: '-', bh: 4.36, hh: 13.94, useBH: true, useHH: true, actual: 22.5, sweep: 0, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T20:30:00Z" }
+                    ]
+                };
+                // Check if already exists to avoid dupes on refresh/update
+                if (!this.archives.find(a => a.id === sampleGame.id)) {
+                    this.archives.push(sampleGame);
+                }
             }
 
             addShot(shotData) {
@@ -484,6 +530,33 @@
                 this.save(); // Triggers recalcStats
             }
 
+            // --- ARCHIVING ---
+            archiveCurrentGame(name) {
+                this.archives.unshift({
+                    id: Date.now(),
+                    name: name || `Game ${this.archives.length + 1}`,
+                    date: new Date().toLocaleDateString(),
+                    history: [...this.history], // Deep copy history
+                    profiles: {...this.profiles}
+                });
+                this.save();
+            }
+
+            loadArchive(id) {
+                const game = this.archives.find(a => a.id === id);
+                if(game) {
+                    this.history = [...game.history];
+                    this.profiles = {...game.profiles};
+                    this.save(); // Triggers recalc/update
+                }
+            }
+
+            deleteArchive(id) {
+                this.archives = this.archives.filter(a => a.id !== id);
+                this.save();
+            }
+
+            // --- CALIBRATION ---
             recalcStats() {
                 this.outliersBH.clear();
                 this.outliersHH.clear();
@@ -491,7 +564,6 @@
                 this.iceOffsetHH = this.calculateSmartOffset('HH');
             }
 
-            // Calculate TEAM offset (Mean Error)
             calculateSmartOffset(type) {
                 const validShots = this.history.filter(s => {
                     if (type === 'BH') return s.useBH && s.actual !== null;
@@ -499,9 +571,8 @@
                     return false;
                 });
 
-                if (validShots.length === 0) return 0; // Instant feedback on 1st shot
+                if (validShots.length === 0) return 0;
 
-                // 1. Calculate Errors & Assign Weights
                 const dataPoints = validShots.map((s, index) => {
                     const slope = type === 'BH' ? CONFIG.physics.bhSlope : CONFIG.physics.hhSlope;
                     const intercept = type === 'BH' ? CONFIG.physics.bhIntercept : CONFIG.physics.hhIntercept;
@@ -515,26 +586,21 @@
 
                     // Weighting Logic
                     let weight = 1.0;
-                    
-                    // Only apply Recency Weighting for H-H. Use Flat weighting for B-H.
                     if (type === 'HH') {
+                        // Recency Only for HH
                         if (index < 4) weight = 1.0;
                         else if (index < 12) weight = 0.6;
                         else weight = 0.2;
-                    } else {
-                        // BH: Flat weighting
-                        weight = 1.0;
-                    }
+                    } 
+                    // BH is Flat (1.0)
 
-                    if (s.actual < 14.0) weight *= 0.5; // Guards (applied to both)
+                    if (s.actual < 14.0) weight *= 0.5; // Guards precision penalty
 
                     return { id: s.id, error, weight };
                 });
 
-                // 2. Initial Weighted Mean
                 const stats1 = this.getWeightedStats(dataPoints);
                 
-                // 3. Outlier Rejection (> 2 SD)
                 const cleanData = dataPoints.filter(d => {
                     if (stats1.sd === 0) return true;
                     const isOutlier = Math.abs(d.error - stats1.mean) > (2 * stats1.sd);
@@ -546,8 +612,6 @@
                 });
 
                 if (cleanData.length === 0) return stats1.mean;
-
-                // 4. Final Weighted Mean
                 const stats2 = this.getWeightedStats(cleanData);
                 return stats2.mean;
             }
@@ -563,24 +627,17 @@
                 return { mean, sd: Math.sqrt(sumSqDiffW / sumW) };
             }
 
-            // Get Prediction with Active Profile Offset
             getPrediction(type, time) {
                 const slope = type === 'BH' ? CONFIG.physics.bhSlope : CONFIG.physics.hhSlope;
                 const int = type === 'BH' ? CONFIG.physics.bhIntercept : CONFIG.physics.hhIntercept;
                 
-                // Base Team Offset
                 let offset = type === 'BH' ? this.iceOffsetBH : this.iceOffsetHH;
                 
-                // Apply Manual Offset if active profile is not TEAM
                 if(this.activeProfile !== 'TEAM' && this.manualOffsets[this.activeProfile]) {
                     if(type === 'BH') offset += (this.manualOffsets[this.activeProfile] * slope); 
                 }
                 
-                // Calculate Dist
                 const dist = (slope * time) + int + offset;
-                
-                // Clamp Board Weight prediction
-                // Board is 39.0. If prediction is > 42 (Board + 3ft), return null (too fast/unrealistic)
                 if (dist > 42.0) return null;
 
                 if(type === 'BH') {
@@ -594,13 +651,12 @@
                 return null;
             }
 
-            // Helper for Modal Stats
             getPlayerMeanError(profileId) {
                 const shots = this.history.filter(s => s.player === profileId && s.useBH && s.actual !== null);
                 if (shots.length === 0) return 0;
                 let sumErr = 0;
                 shots.forEach(s => {
-                    const pred = (CONFIG.physics.bhSlope * s.bh) + CONFIG.physics.bhIntercept; // Raw
+                    const pred = (CONFIG.physics.bhSlope * s.bh) + CONFIG.physics.bhIntercept;
                     const act = s.actual - (s.sweep||0);
                     sumErr += (act - pred);
                 });
@@ -618,16 +674,20 @@
                 this.save();
             }
 
-            exportCSV() {
-                const name = prompt("Enter filename:", "curling_data") || "curling_data";
+            exportCSV(saveName) {
+                // Auto-archive
+                this.archiveCurrentGame(saveName);
+
                 let csv = "Pos,B-H,Used,H-H,Used,Result,Sweep\n";
                 this.history.forEach(s => { 
                     const sw = s.sweep ? (s.sweep === 3 ? 'L' : s.sweep === 6 ? 'M' : s.sweep === 9 ? 'H' : 'N/A') : 'N/A';
-                    csv += `${s.player},${s.bh.toFixed(2)},${s.useBH},${s.hh.toFixed(2)},${s.useHH},${s.actual},${sw}\n`; 
+                    // Export with '-' instead of 'TEAM'
+                    const pName = (s.player === 'TEAM' || !s.player) ? '-' : s.player;
+                    csv += `${pName},${s.bh.toFixed(2)},${s.useBH},${s.hh.toFixed(2)},${s.useHH},${s.actual},${sw}\n`; 
                 });
                 const blob = new Blob([csv], { type: 'text/csv' });
                 const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = `${name}.csv`; a.click();
+                const a = document.createElement('a'); a.href = url; a.download = `${saveName}.csv`; a.click();
             }
         }
 
@@ -660,7 +720,6 @@
             }
 
             bindEvents() {
-                // UNIVERSAL TOUCH HANDLER (Fixes iPhone tap issues)
                 const handleTouch = (e) => {
                     const target = e.target.closest('[data-action]');
                     if(!target) return;
@@ -678,12 +737,20 @@
                 const btnMain = document.getElementById('btn-main');
                 if(btnMain) {
                     btnMain.addEventListener('touchstart', (e) => {
-                        e.preventDefault(); // Stop ghost mouse events
+                        e.preventDefault(); 
                         this.handleAction('main-btn', btnMain);
                     }, {passive: false});
                 }
 
-                // Long Press for Profile Buttons
+                // Modal Close on Overlay Click
+                this.els.modal.addEventListener('click', (e) => {
+                    if(e.target === this.els.modal) {
+                        // Logic: Sub -> Menu -> Close
+                        if(this.els.modal.dataset.view === 'sub') this.showMenu();
+                        else this.els.modal.classList.remove('open');
+                    }
+                });
+
                 ['Skip','3rd','2nd','Lead'].forEach(id => {
                     const btn = document.getElementById(`btn-${id}`);
                     if(!btn) return;
@@ -699,14 +766,12 @@
                         if (this.longPressTimer) {
                             clearTimeout(this.longPressTimer);
                             this.longPressTimer = null;
-                            // Normal Click Action
                             const isAlreadyActive = this.app.session.activeProfile === id;
                             this.app.session.activeProfile = isAlreadyActive ? 'TEAM' : id;
                             this.updateProfileUI();
                             this.updateRefTable();
                         }
                     };
-                    
                     btn.addEventListener('touchstart', start, {passive:true});
                     btn.addEventListener('touchend', end);
                     btn.addEventListener('mousedown', start);
@@ -717,7 +782,6 @@
             handleAction(action, el) {
                 switch(action) {
                     case 'main-btn': this.app.timer.mainAction(); break;
-                    case 'reset': this.app.reset(); break;
                     case 'toggle-bh': 
                         this.app.timer.enabledBH = !this.app.timer.enabledBH;
                         document.getElementById('disp-bh').classList.toggle('disabled', !this.app.timer.enabledBH);
@@ -749,8 +813,10 @@
                     case 'grid-discard':
                         this.tempShot = null;
                         this.els.flashTray.classList.remove('active');
+                        this.setBtnState('start', 'START');
                         break;
                     case 'open-menu': this.showMenu(); break;
+                    case 'back-menu': this.showMenu(); break;
                     case 'close-modal': this.els.modal.classList.remove('open'); break;
                     case 'save-profile':
                         const val = document.getElementById('rename-input').value;
@@ -765,6 +831,28 @@
                         this.tempOffset += parseFloat(el.dataset.val);
                         document.getElementById('offset-val').innerText = (this.tempOffset > 0 ? "+" : "") + this.tempOffset.toFixed(2);
                         break;
+                    case 'open-archives': this.showArchives(); break;
+                    case 'load-archive': 
+                        if(confirm("Load old game? Unsaved progress will be lost.")) {
+                            this.app.session.loadArchive(parseInt(el.dataset.id));
+                            this.updateRefTable();
+                            this.updateProfileUI();
+                            this.els.modal.classList.remove('open');
+                        }
+                        break;
+                    case 'delete-archive':
+                        if(confirm("Delete this saved game?")) {
+                            this.app.session.deleteArchive(parseInt(el.dataset.id));
+                            this.showArchives(); // Refresh list
+                        }
+                        break;
+                    case 'do-export':
+                        const name = prompt("Name this game:", "Curling_Game_" + new Date().toLocaleDateString().replace(/\//g,'-'));
+                        if(name) {
+                            this.app.session.exportCSV(name);
+                            this.els.modal.classList.remove('open');
+                        }
+                        break;
                 }
             }
 
@@ -773,8 +861,9 @@
                 if (timerState.state === 'RUNNING') {
                     this.els.valBH.innerText = timerState.liveBH.toFixed(2);
                     this.els.valBH.classList.remove('idle'); 
+                    // No Live Prediction
                     this.els.predBH.innerText = "";
-                    this.els.predHH.innerText = ""; // Clear HH
+                    this.els.predHH.innerText = ""; // Clear HH immediately
                     this.setBtnState('split', 'HOG 1');
                     
                     this.els.valHH.innerText = "--";
@@ -786,7 +875,6 @@
                     this.els.predHH.innerText = "";
                     this.setBtnState('int', 'HOG 2');
 
-                    // If BH was skipped or invalid
                     if(timerState.splitBH === 0) {
                         this.els.valBH.innerText = "--";
                         this.els.valBH.classList.add('idle');
@@ -803,7 +891,6 @@
             predict(type, time) {
                 const dist = this.app.session.getPrediction(type, time);
                 const el = type === 'BH' ? this.els.predBH : this.els.predHH;
-                
                 if (dist === null) { el.innerText = ""; return; }
                 
                 let label = "?"; let min = 99;
@@ -816,16 +903,10 @@
 
             activateInput(finalState) {
                 if(finalState.enabledBH) this.predict('BH', finalState.splitBH);
-                // Only predict HH if valid (not timed out)
                 if(finalState.enabledHH && finalState.splitHH > 0) this.predict('HH', finalState.splitHH);
 
                 // INPUT FILTERING
-                const bhValid = finalState.enabledBH && finalState.splitBH >= CONFIG.limits.minBH;
-                const hhValid = finalState.enabledHH && finalState.splitHH >= CONFIG.limits.minHH;
-
-                // Stop if all active timers are invalid (short or timed out)
                 const bhTooShort = finalState.enabledBH && finalState.splitBH < CONFIG.limits.minBH;
-                // HH Timeout results in splitHH = 0, which is < minHH, so this covers it
                 const hhInvalid = finalState.enabledHH && finalState.splitHH < CONFIG.limits.minHH;
                 
                 let abort = false;
@@ -838,13 +919,12 @@
                      return; 
                 }
                 
-                // If we got here, at least one time is valid enough to record
                 this.tempShot = {
                     player: this.app.session.activeProfile,
                     bh: finalState.splitBH,
                     hh: finalState.splitHH,
-                    useBH: bhValid && (finalState.splitBH < CONFIG.limits.maxBH),
-                    useHH: hhValid && (finalState.splitHH < CONFIG.limits.maxHH),
+                    useBH: finalState.enabledBH && (finalState.splitBH >= CONFIG.limits.minBH && finalState.splitBH < CONFIG.limits.maxBH),
+                    useHH: finalState.enabledHH && (finalState.splitHH >= CONFIG.limits.minHH && finalState.splitHH < CONFIG.limits.maxHH),
                     actual: null,
                     sweep: null
                 };
@@ -937,7 +1017,6 @@
                 tbl.innerHTML = '';
                 const rows = [11.0, 10.0, 7.0, 4.0, 2.0]; // Hack, B12, Tee, T12, Mid
                 
-                // Calculate Manual Offset in Distance (Approx)
                 let extraOffset = 0;
                 if(this.app.session.activeProfile !== 'TEAM') {
                      const sec = this.app.session.manualOffsets[this.app.session.activeProfile] || 0;
@@ -960,6 +1039,7 @@
             /* --- MENU & MODALS --- */
 
             showMenu() {
+                this.els.modal.dataset.view = 'menu';
                 this.els.modalContent.innerHTML = `
                     <div class="modal-header">Menu</div>
                     <ul class="modal-list">
@@ -968,7 +1048,8 @@
                         <li><button onclick="app.ui.showGraph('HH')">Graph (Hog-Hog)</button></li>
                         <li><button onclick="app.ui.showGraph('BH-Error')">Error Plot (BH)</button></li>
                         <li><button onclick="app.ui.showGraph('HH-Error')">Error Plot (HH)</button></li>
-                        <li><button onclick="app.session.exportCSV()" style="color:var(--c-blue); border-color:var(--c-blue)">Export CSV</button></li>
+                        <li><button data-action="open-archives" style="color:var(--c-orange); border-color:var(--c-orange)">Saved Games</button></li>
+                        <li><button data-action="do-export" style="color:var(--c-blue); border-color:var(--c-blue)">Save & Export</button></li>
                         <li><button onclick="app.resetData()" style="color:var(--c-red); border-color:var(--c-red)">Clear Data</button></li>
                         <li><button data-action="close-modal" style="color:#666; margin-top:10px;">Close</button></li>
                     </ul>
@@ -976,12 +1057,40 @@
                 this.els.modal.classList.add('open');
             }
 
+            showArchives() {
+                this.els.modal.dataset.view = 'sub';
+                let list = '';
+                if(this.app.session.archives.length === 0) list = '<div style="text-align:center; color:#666; padding:20px;">No saved games</div>';
+                else {
+                    this.app.session.archives.forEach(a => {
+                        list += `
+                        <div style="background:#333; padding:10px; margin-bottom:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div style="font-weight:700; color:#fff;">${a.name}</div>
+                                <div style="font-size:10px; color:#888;">${a.date}</div>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button data-action="load-archive" data-id="${a.id}" style="padding:6px 10px; font-size:11px; background:var(--c-blue); color:#fff; border:none; border-radius:4px;">LOAD</button>
+                                <button data-action="delete-archive" data-id="${a.id}" style="padding:6px 10px; font-size:11px; background:var(--c-red); color:#fff; border:none; border-radius:4px;">DEL</button>
+                            </div>
+                        </div>`;
+                    });
+                }
+
+                this.els.modalContent.innerHTML = `
+                    <div class="modal-header">Saved Games</div>
+                    <div class="modal-content-scroll">${list}</div>
+                    <button data-action="back-menu" style="width:100%; padding:14px; margin-top:10px; background:transparent; border:1px solid #444; color:#666; border-radius:8px;">Back</button>
+                `;
+            }
+
             showHistory() {
+                this.els.modal.dataset.view = 'sub';
                 let rows = '';
                 this.app.session.history.forEach(s => {
                     const sw = s.sweep ? (s.sweep === 3 ? 'L' : s.sweep === 6 ? 'M' : s.sweep === 9 ? 'H' : '-') : '-';
                     const res = CONFIG.zones.find(z => z.d === s.actual)?.n || '-';
-                    const pName = s.player === 'TEAM' ? '-' : (this.app.session.profiles[s.player] || s.player).substring(0,4);
+                    const pName = (s.player === 'TEAM' || !s.player) ? '-' : (this.app.session.profiles[s.player] || s.player).substring(0,4);
                     
                     const bhOut = this.app.session.outliersBH.has(s.id);
                     const hhOut = this.app.session.outliersHH.has(s.id);
@@ -1003,26 +1112,19 @@
                             <tbody>${rows}</tbody>
                         </table>
                     </div>
-                    <button data-action="close-modal" style="width:100%; padding:14px; margin-top:10px; background:transparent; border:1px solid #444; color:#666; border-radius:8px;">Close</button>
+                    <button data-action="back-menu" style="width:100%; padding:14px; margin-top:10px; background:transparent; border:1px solid #444; color:#666; border-radius:8px;">Back</button>
                 `;
-                this.els.modal.classList.add('open');
             }
 
             showProfileModal(id) {
+                this.els.modal.dataset.view = 'modal';
                 const currentName = this.app.session.profiles[id];
                 this.tempOffset = this.app.session.manualOffsets[id] || 0;
                 
                 // Calculations for Stats
-                // 1. Team Tee Time
                 const teamTee = (21.0 - CONFIG.physics.bhIntercept - this.app.session.iceOffsetBH) / CONFIG.physics.bhSlope;
-                
-                // 2. Player Tee Time
-                // Get player mean error
                 const pErr = this.app.session.getPlayerMeanError(id);
-                // Note: The "Player" time uses the player's specific historical error, completely ignoring manual offset for now
-                // This shows how they actually performed vs the team line
                 const pTee = (21.0 - CONFIG.physics.bhIntercept - pErr) / CONFIG.physics.bhSlope;
-                
                 const diff = pTee - teamTee;
                 const sign = diff > 0 ? "+" : "";
                 
@@ -1048,6 +1150,7 @@
             }
 
             showGraph(type) {
+                this.els.modal.dataset.view = 'sub';
                 const titles = {
                     'BH': 'Back-to-Hog', 'HH': 'Hog-to-Hog',
                     'BH-Error': 'BH Error (Feet)', 'HH-Error': 'HH Error (Feet)'
@@ -1059,9 +1162,8 @@
                     <div class="graph-legend">
                         ${Object.keys(CONFIG.colors).map(k => k!=='-' ? `<div class="legend-item"><span class="dot" style="background:${CONFIG.colors[k]}"></span>${this.app.session.profiles[k] || k}</div>` : '').join('')}
                     </div>
-                    <button data-action="close-modal" style="width:100%; padding:14px; margin-top:10px; background:transparent; border:1px solid #444; color:#666; border-radius:8px;">Close</button>
+                    <button data-action="back-menu" style="width:100%; padding:14px; margin-top:10px; background:transparent; border:1px solid #444; color:#666; border-radius:8px;">Back</button>
                 `;
-                this.els.modal.classList.add('open');
                 
                 // Draw Graph
                 setTimeout(() => {
@@ -1089,23 +1191,19 @@
                 ctx.textAlign = "left";
                 
                 labels.forEach(name => {
-                    // Try to match name exactly or without space
                     const z = CONFIG.zones.find(z => z.n === name || z.n === name.replace(' ', ''));
                     if(z) {
                         let y = mapY(z.d);
-                        // Draw Grid Line
                         ctx.strokeStyle = '#333'; 
                         ctx.beginPath(); 
                         ctx.moveTo(0, y); ctx.lineTo(w, y); 
                         ctx.stroke();
-                        
-                        // Draw Label
                         ctx.fillStyle = '#666';
                         ctx.fillText(name, 2, y - 2); 
                     }
                 });
 
-                // Calibration Line (Draws Team Baseline)
+                // Calibration Line
                 const slope = type === 'BH' ? CONFIG.physics.bhSlope : CONFIG.physics.hhSlope;
                 const int = type === 'BH' ? CONFIG.physics.bhIntercept : CONFIG.physics.hhIntercept;
                 const off = type === 'BH' ? this.app.session.iceOffsetBH : this.app.session.iceOffsetHH;
@@ -1121,7 +1219,6 @@
                     let t = type === 'BH' ? s.bh : s.hh;
                     if(t < xMin || t > xMax) return;
                     
-                    // Adjust Y for BH sweep
                     let y = s.actual;
                     if(type === 'BH' && s.sweep) y -= s.sweep;
 
@@ -1137,21 +1234,19 @@
             }
 
             drawErrorGraph(ctx, type, w, h) {
-                // Plot Error (Y) vs Shot Index (X)
-                // Range Y: -10ft to +10ft
                 const yRange = 10;
                 const shots = this.app.session.history.filter(s => s.actual !== null && (type === 'BH-Error' ? s.useBH : s.useHH));
                 
                 if(shots.length === 0) return;
 
-                const mapX = (idx) => (idx / (shots.length + 1)) * w; // Scale X by number of shots
-                const mapY = (val) => (h/2) - ((val / yRange) * (h/2)); // 0 is center
+                const mapX = (idx) => (idx / (shots.length + 1)) * w; 
+                const mapY = (val) => (h/2) - ((val / yRange) * (h/2)); 
 
                 // Zero Line
                 ctx.strokeStyle = '#444'; ctx.lineWidth = 1; ctx.beginPath();
                 ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
                 
-                // Grid Lines (+5, -5)
+                // Grid Lines
                 ctx.strokeStyle = '#222'; ctx.beginPath();
                 ctx.moveTo(0, mapY(5)); ctx.lineTo(w, mapY(5));
                 ctx.moveTo(0, mapY(-5)); ctx.lineTo(w, mapY(-5));
@@ -1165,25 +1260,19 @@
                 const slope = type === 'BH-Error' ? CONFIG.physics.bhSlope : CONFIG.physics.hhSlope;
                 const int = type === 'BH-Error' ? CONFIG.physics.bhIntercept : CONFIG.physics.hhIntercept;
                 
-                // Points (Reverse order so oldest is left)
                 for(let i=0; i<shots.length; i++) {
                     const s = shots[i];
                     const xIdx = shots.length - i; 
                     
-                    // Retrieve STATIC offset at time of shot (or fallback to current if legacy data)
                     const off = (type === 'BH-Error') 
                         ? (s.offsetBH !== undefined ? s.offsetBH : this.app.session.iceOffsetBH)
                         : (s.offsetHH !== undefined ? s.offsetHH : this.app.session.iceOffsetHH);
 
                     const time = type === 'BH-Error' ? s.bh : s.hh;
-                    
-                    // Reconstruct prediction based on calibration AT THAT TIME
                     const pred = (slope * time) + int + off;
-                    
                     let act = s.actual;
                     if(type === 'BH-Error' && s.sweep) act -= s.sweep;
-                    
-                    const err = act - pred; // Positive = Long, Negative = Short
+                    const err = act - pred; 
                     
                     const cx = mapX(xIdx);
                     const cy = mapY(err);
