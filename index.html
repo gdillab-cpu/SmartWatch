@@ -56,7 +56,7 @@
         .timer-display {
             flex: 1; background: #222; border-radius: 16px; position: relative;
             display: grid; grid-template-columns: 1fr 1fr;
-            border: 1px solid rgba(10, 132, 255, 0.3); /* LIGHT BLUE OUTLINE */
+            border: 1px solid rgba(10, 132, 255, 0.3);
         }
         /* Vertical Divider */
         .timer-display::after {
@@ -113,14 +113,13 @@
         /* Menu Button Split */
         .menu-strip {
             width: 50px; background: #252525; border-left: 1px solid var(--c-border);
-            display: flex; flex-direction: column; /* Split vertically */
+            display: flex; flex-direction: column;
             align-items: center; justify-content: center; 
             padding: 0;
             overflow: visible; 
             z-index: 60;
         }
         .mode-toggle {
-            /* Fixed height at top, abutting cells */
             flex: 0 0 50px; 
             width: 100%; display: flex; align-items: center; justify-content: center;
             border-bottom: 1px solid #333; cursor: pointer;
@@ -135,18 +134,15 @@
             display: block;
             transition: all 0.2s ease;
         }
-        /* Nerd: Scaled up to fill */
         .mode-icon-svg.nerd {
              transform: scale(1.4); 
              filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
         }
-        /* Cool: Scaled up to fill */
         .mode-icon-svg.cool {
             transform: scale(1.4);
         }
 
         .menu-trigger {
-            /* Fills remaining height */
             flex: 1; 
             width: 100%; display: flex; align-items: center; justify-content: center;
             cursor: pointer; position: relative; z-index: 5; background: #252525;
@@ -168,7 +164,6 @@
         
         .flash-grid {
             display: grid; 
-            /* Default Data Mode: 5 Columns */
             grid-template-columns: 20% 1fr 1fr 1fr 15%; 
             grid-template-rows: repeat(4, 55px);
             gap: 6px; width: 100%;
@@ -267,7 +262,6 @@
         body.simple-mode .profile-section { display: none; }
         body.simple-mode .ref-section { width: 100%; border-right: none; }
         body.simple-mode .flash-grid {
-            /* 4 Columns: Remove Player Col */
             grid-template-columns: 1fr 1fr 1fr 15%;
         }
     </style>
@@ -337,7 +331,6 @@
 
     <!-- MODALS (Generic Container) -->
     <div class="modal-overlay" id="modal-overlay">
-        <!-- Content injected dynamically -->
         <div class="modal-card" id="modal-content"></div>
     </div>
 
@@ -364,8 +357,6 @@
             ],
             sweeps: [ {n:'N/A', v:0}, {n:'L', v:3}, {n:'M', v:6}, {n:'H', v:9} ],
             
-            // 5-Column Grid Layout Map
-            // B8 (Index 13), B4 (Index 17)
             gridMap: [
                 {t:'p', id:'Skip'}, {t:'z', n:'High'}, {t:'z', n:'Mid'}, {t:'z', n:'Tight'}, {t:'s', n:'N/A'},
                 {t:'p', id:'3rd'},  {t:'z', n:'T 12'}, {t:'z', n:'T 8'}, {t:'d', n:'DISCARD'}, {t:'s', n:'L'},
@@ -375,7 +366,6 @@
             colors: { 'Skip': '#FF453A', '3rd': '#FF9F0A', '2nd': '#0A84FF', 'Lead': '#30D158', '-': '#98989D' },
             
             icons: {
-                // DATA MODE ICON (Nerd)
                 data: `<svg class="mode-icon-svg nerd" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect x="2" y="2" width="60" height="60" rx="15" fill="#B0B0B0"/>
   <g fill="none" stroke="#505050" stroke-width="5">
@@ -389,7 +379,6 @@
   <path d="M22 46 Q32 54 42 46" fill="none" stroke="#505050" stroke-width="3" stroke-linecap="round"/>
   <path d="M32 58 L24 54 V62 Z M32 58 L40 54 V62 Z" fill="#505050"/>
 </svg>`,
-                // SIMPLE MODE ICON (Cool)
                 simple: `<svg class="mode-icon-svg cool" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect x="2" y="2" width="60" height="60" rx="15" fill="#B0B0B0"/>
   <path d="M10 24 H54 L53 35 Q53 43 44 43 H35 L32 33 L29 43 H20 Q11 43 11 35 Z" fill="#505050"/>
@@ -405,16 +394,16 @@
          */
         class Stopwatch {
             constructor() {
-                this.state = 'IDLE'; // IDLE, RUNNING, INTERVAL, FINISHED
-                this.t0 = 0; // Start Time
-                this.t1 = 0; // Hog Time
+                this.state = 'IDLE';
+                this.t0 = 0;
+                this.t1 = 0;
                 this.splitBH = 0;
                 this.splitHH = 0;
                 this.enabledBH = true; 
                 this.enabledHH = true;
                 this.rafId = null;
-                this.onTick = null; // Callback for UI updates
-                this.onFinish = null; // Callback when timer stops
+                this.onTick = null;
+                this.onFinish = null;
             }
 
             reset() {
@@ -429,9 +418,7 @@
                 const now = Date.now();
                 
                 if (this.state === 'IDLE' || this.state === 'FINISHED') {
-                    // Start
                     if(!this.enabledBH) {
-                         // Direct to HH interval
                          this.state = 'INTERVAL';
                          this.t1 = now;
                          this.startLoop();
@@ -442,22 +429,18 @@
                     }
                 } 
                 else if (this.state === 'RUNNING') {
-                    // Split at Hog 1
                     this.t1 = now;
                     this.splitBH = (this.t1 - this.t0) / 1000;
                     
                     if (this.splitBH > CONFIG.limits.autoHog) {
-                        // Auto-Hog logic: The click was actually the FIRST hog line
-                        this.splitBH = 0; // Invalidate BH
+                        this.splitBH = 0;
                         this.t0 = 0;
                         if(this.enabledHH) {
                             this.state = 'INTERVAL';
                         } else {
-                            // If HH is disabled and we Auto-Hogged, we just finish (nothing to time)
                             this.finish();
                         }
                     } else {
-                        // Normal Split
                         if(this.enabledHH) {
                             this.state = 'INTERVAL';
                         } else {
@@ -466,7 +449,6 @@
                     }
                 } 
                 else if (this.state === 'INTERVAL') {
-                    // Split at Hog 2
                     this.splitHH = (now - this.t1) / 1000;
                     this.finish();
                 }
@@ -481,10 +463,9 @@
                         const cur = (now - this.t0) / 1000;
                         if(this.onTick) this.onTick({ ...this, liveBH: cur });
                         
-                        // Auto-Hog Transition (Visual only, logic handled in click)
                         if (cur > CONFIG.limits.autoHog) {
                             this.state = 'INTERVAL';
-                            this.t1 = this.t0; // Treat start as T1
+                            this.t1 = this.t0;
                             this.t0 = 0;
                             this.splitBH = 0;
                         }
@@ -493,7 +474,6 @@
                         const cur = (now - this.t1) / 1000;
                         if(this.onTick) this.onTick({ ...this, liveHH: cur });
                         
-                        // Timeout Logic (19s)
                         if (cur > CONFIG.limits.timeout) {
                             this.splitHH = 0; // Mark as invalid/timeout
                             this.finish();
@@ -530,8 +510,8 @@
                 this.profiles = { 'Skip':'SKIP', '3rd':'3RD', '2nd':'2ND', 'Lead':'LEAD' };
                 this.manualOffsets = { 'Skip':0, '3rd':0, '2nd':0, 'Lead':0 };
                 this.activeProfile = 'TEAM';
-                this.iceOffsetBH = 0; // TEAM calibration
-                this.iceOffsetHH = 0; // TEAM calibration
+                this.iceOffsetBH = 0;
+                this.iceOffsetHH = 0;
                 this.outliersBH = new Set();
                 this.outliersHH = new Set();
                 this.load();
@@ -546,12 +526,10 @@
                     this.profiles = parsed.profiles || this.profiles;
                     this.manualOffsets = parsed.manualOffsets || this.manualOffsets;
                     
-                    // If archives is empty, ensure the sample game exists
                     if (this.archives.length === 0) this.createSampleArchive();
                     
                     this.recalcStats();
                 } else {
-                    // New Install
                     this.createSampleArchive();
                     this.save();
                 }
@@ -569,7 +547,6 @@
             }
 
             createSampleArchive() {
-                // Hardcoded data from 2025 Brier Semifinal Gushue
                 const sampleGame = {
                     id: 1739720000000,
                     name: "Sample: 2025 Brier Semifinal",
@@ -597,14 +574,12 @@
                         { id: 19, player: '-', bh: 4.36, hh: 13.94, useBH: true, useHH: true, actual: 22.5, sweep: 0, offsetBH:0, offsetHH:0, timestamp: "2025-03-08T20:30:00Z" }
                     ]
                 };
-                // Check if already exists to avoid dupes on refresh/update
                 if (!this.archives.find(a => a.id === sampleGame.id)) {
                     this.archives.push(sampleGame);
                 }
             }
 
             addShot(shotData) {
-                // CAPTURE CALIBRATION STATE AT TIME OF SHOT FOR STATIC ERROR PLOTS
                 this.history.unshift({
                     id: Date.now(),
                     ...shotData,
@@ -613,16 +588,15 @@
                     timestamp: new Date().toISOString()
                 });
                 if(this.history.length > 150) this.history.pop();
-                this.save(); // Triggers recalcStats
+                this.save();
             }
 
-            // --- ARCHIVING ---
             archiveCurrentGame(name) {
                 this.archives.unshift({
                     id: Date.now(),
                     name: name || `Game ${this.archives.length + 1}`,
                     date: new Date().toLocaleDateString(),
-                    history: [...this.history], // Deep copy history
+                    history: [...this.history],
                     profiles: {...this.profiles}
                 });
                 this.save();
@@ -633,7 +607,7 @@
                 if(game) {
                     this.history = [...game.history];
                     this.profiles = {...game.profiles};
-                    this.save(); // Triggers recalc/update
+                    this.save();
                 }
             }
 
@@ -642,7 +616,6 @@
                 this.save();
             }
 
-            // --- CALIBRATION ---
             recalcStats() {
                 this.outliersBH.clear();
                 this.outliersHH.clear();
@@ -670,17 +643,14 @@
 
                     const error = adjustedActual - rawPred;
 
-                    // Weighting Logic
                     let weight = 1.0;
                     if (type === 'HH') {
-                        // Recency Only for HH
                         if (index < 4) weight = 1.0;
                         else if (index < 12) weight = 0.6;
                         else weight = 0.2;
                     } 
-                    // BH is Flat (1.0)
 
-                    if (s.actual < 14.0) weight *= 0.5; // Guards precision penalty
+                    if (s.actual < 14.0) weight *= 0.5;
 
                     return { id: s.id, error, weight };
                 });
@@ -761,13 +731,11 @@
             }
 
             exportCSV(saveName) {
-                // Auto-archive
                 this.archiveCurrentGame(saveName);
 
                 let csv = "Pos,B-H,Used,H-H,Used,Result,Sweep\n";
                 this.history.forEach(s => { 
                     const sw = s.sweep ? (s.sweep === 3 ? 'L' : s.sweep === 6 ? 'M' : s.sweep === 9 ? 'H' : 'N/A') : 'N/A';
-                    // Export with '-' instead of 'TEAM'
                     const pName = (s.player === 'TEAM' || !s.player) ? '-' : s.player;
                     csv += `${pName},${s.bh.toFixed(2)},${s.useBH},${s.hh.toFixed(2)},${s.useHH},${s.actual},${sw}\n`; 
                 });
@@ -801,7 +769,7 @@
                 this.tempShot = null; 
                 this.longPressTimer = null;
                 this.tempOffset = 0;
-                this.lastActionTime = 0; // Debounce tracking
+                this.lastActionTime = 0;
                 
                 this.renderGrid();
                 this.bindEvents();
@@ -809,33 +777,41 @@
             }
 
             bindEvents() {
-                const handleTouch = (e) => {
-                    const target = e.target.closest('[data-action]');
-                    if(!target) return;
-                    e.preventDefault(); 
-                    this.handleAction(target.dataset.action, target);
-                };
+                // -------------------------------------------------------
+                // FIX: Single event model to eliminate double-triggering.
+                //
+                // Strategy:
+                //   - Touch devices: body touchstart handles ALL data-action
+                //     buttons instantly. The synthetic 'click' is suppressed
+                //     by setting isTouchDevice = true on first touch.
+                //   - Desktop: body click handles data-action buttons.
+                //     mousedown on #btn-main gives instant response.
+                //   - Profile buttons keep their own touchstart/touchend for
+                //     long-press detection and are NOT in the data-action flow.
+                // -------------------------------------------------------
+                let isTouchDevice = false;
 
-                document.body.addEventListener('touchend', handleTouch, {passive: false});
-                document.body.addEventListener('click', (e) => {
+                // TOUCH: Instant delegation via touchstart on body
+                document.body.addEventListener('touchstart', (e) => {
+                    isTouchDevice = true;
                     const target = e.target.closest('[data-action]');
-                    if(target) this.handleAction(target.dataset.action, target);
+                    if (!target) return;
+                    e.preventDefault(); // Prevents synthetic click from firing
+                    this.handleAction(target.dataset.action, target);
+                }, { passive: false });
+
+                // DESKTOP: Click delegation (suppressed on touch devices)
+                document.body.addEventListener('click', (e) => {
+                    if (isTouchDevice) return;
+                    const target = e.target.closest('[data-action]');
+                    if (target) this.handleAction(target.dataset.action, target);
                 });
 
-                // MAIN BUTTON: INSTANT TRIGGER
-                const btnMain = document.getElementById('btn-main');
-                if(btnMain) {
-                    // Mobile: Instant start
-                    btnMain.addEventListener('touchstart', (e) => {
-                        e.preventDefault(); 
-                        this.handleAction('main-btn', btnMain);
-                    }, {passive: false});
-                    
-                    // Desktop: Instant start (mousedown)
-                    btnMain.addEventListener('mousedown', (e) => {
-                        this.handleAction('main-btn', btnMain);
-                    });
-                }
+                // DESKTOP: mousedown on main button for instant response
+                document.getElementById('btn-main').addEventListener('mousedown', (e) => {
+                    if (isTouchDevice) return;
+                    this.handleAction('main-btn', document.getElementById('btn-main'));
+                });
 
                 // Modal Close on Overlay Click
                 this.els.modal.addEventListener('click', (e) => {
@@ -845,6 +821,8 @@
                     }
                 });
 
+                // Profile buttons: long-press to edit, tap to select
+                // These are separate from data-action delegation intentionally.
                 ['Skip','3rd','2nd','Lead'].forEach(id => {
                     const btn = document.getElementById(`btn-${id}`);
                     if(!btn) return;
@@ -947,7 +925,7 @@
                     case 'delete-archive':
                         if(confirm("Delete this saved game?")) {
                             this.app.session.deleteArchive(parseInt(el.dataset.id));
-                            this.showArchives(); // Refresh list
+                            this.showArchives();
                         }
                         break;
                     case 'do-export':
@@ -964,7 +942,7 @@
                 if (this.app.mode === 'SIMPLE') {
                     document.body.classList.add('simple-mode');
                     this.els.modeIcon.innerHTML = CONFIG.icons.simple;
-                    this.app.session.activeProfile = 'TEAM'; // Force team profile
+                    this.app.session.activeProfile = 'TEAM';
                     this.updateProfileUI();
                 } else {
                     document.body.classList.remove('simple-mode');
@@ -975,39 +953,31 @@
             }
 
             update(timerState) {
-                // Update Numeric Displays
                 if (timerState.state === 'RUNNING') {
                     this.els.valBH.innerText = timerState.liveBH.toFixed(2);
                     this.els.valBH.classList.remove('idle'); 
-                    // No Live Prediction
                     this.els.predBH.innerText = "";
-                    this.els.predHH.innerText = ""; // Clear HH immediately
+                    this.els.predHH.innerText = "";
                     this.setBtnState('split', 'HOG 1');
                     
                     this.els.valHH.innerText = "--";
-                    this.els.valHH.classList.add('idle'); // Revert to Idle Grey
+                    this.els.valHH.classList.add('idle');
                 } 
                 else if (timerState.state === 'INTERVAL') {
                     this.els.valHH.innerText = timerState.liveHH.toFixed(2);
                     this.els.valHH.classList.remove('idle');
-                    // No Live Prediction for HH currently running
                     this.els.predHH.innerText = "";
                     this.setBtnState('int', 'HOG 2');
 
-                    // If BH was skipped or invalid
                     if(timerState.splitBH === 0) {
                         this.els.valBH.innerText = "--";
                         this.els.valBH.classList.add('idle');
                     } else {
-                        // IMMEDIATE B-H PREDICTION
-                        // Time is stopped, show estimate
                         this.predict('BH', timerState.splitBH);
                     }
                 }
                 else if (timerState.state === 'IDLE') {
                     this.setBtnState('start', 'START');
-                    // Keep existing values if just stopped short, otherwise clear
-                    // Logic handled in activateInput/reset
                 }
             }
 
@@ -1026,27 +996,26 @@
             }
 
             activateInput(finalState) {
-                // Display predictions for the final static times
-                if(finalState.enabledBH) this.predict('BH', finalState.splitBH);
+                // FIX: If HH timed out (splitHH === 0 after being enabled),
+                // clear the display back to -- instead of showing ~19s.
+                if (finalState.enabledHH && finalState.splitHH === 0) {
+                    this.els.valHH.innerText = "--";
+                    this.els.predHH.innerText = "";
+                }
+
+                // Display predictions for final static times
+                if(finalState.enabledBH && finalState.splitBH > 0) this.predict('BH', finalState.splitBH);
                 if(finalState.enabledHH && finalState.splitHH > 0) this.predict('HH', finalState.splitHH);
 
-                // INPUT FILTERING: Check if times are realistic
                 const bhValid = finalState.enabledBH && finalState.splitBH >= CONFIG.limits.minBH;
                 const hhValid = finalState.enabledHH && finalState.splitHH >= CONFIG.limits.minHH;
 
-                // If both enabled but both invalid, or single enabled and invalid -> Reset to "Stop" state visually (button ready to start)
                 const bhTooShort = finalState.enabledBH && finalState.splitBH < CONFIG.limits.minBH;
                 const hhTooShort = finalState.enabledHH && finalState.splitHH < CONFIG.limits.minHH;
                 
-                // Logic: If active timers are ALL too short, don't open tray.
-                // Leave times visible, reset Main Button to START.
-                
                 let abort = false;
-                // Case 1: Both Enabled, both short
                 if (finalState.enabledBH && finalState.enabledHH && bhTooShort && hhTooShort) abort = true;
-                // Case 2: BH Only, BH Short
                 if (finalState.enabledBH && !finalState.enabledHH && bhTooShort) abort = true;
-                // Case 3: HH Only, HH Short
                 if (!finalState.enabledBH && finalState.enabledHH && hhTooShort) abort = true;
                 
                 if (abort) {
@@ -1054,7 +1023,6 @@
                      return; 
                 }
                 
-                // If we got here, at least one time is valid enough to record
                 this.tempShot = {
                     player: this.app.session.activeProfile,
                     bh: finalState.splitBH,
@@ -1075,7 +1043,6 @@
                 c.innerHTML = '';
                 
                 CONFIG.gridMap.forEach(i => {
-                    // IF SIMPLE MODE, SKIP 'p' (Player) items
                     if (this.app.mode === 'SIMPLE' && i.t === 'p') return;
 
                     const b = document.createElement('div');
@@ -1125,7 +1092,6 @@
                 const hasSweep = this.tempShot.sweep !== null;
 
                 if (hasZone && (!needsSweep || hasSweep)) {
-                    // Update highlight one last time to ensure final sweep selection is visible
                     this.highlightGrid(); 
                     
                     this.app.session.addShot(this.tempShot);
@@ -1144,7 +1110,6 @@
             }
 
             updateProfileUI() {
-                // If simple mode, force ref header text
                 if (this.app.mode === 'SIMPLE') {
                     document.getElementById('ref-header').innerText = 'Live Ice Speeds';
                     return;
@@ -1162,9 +1127,8 @@
             updateRefTable() {
                 const tbl = this.els.refTable;
                 tbl.innerHTML = '';
-                const rows = [11.0, 10.0, 7.0, 4.0, 2.0]; // Hack, B12, Tee, T12, Mid
+                const rows = [11.0, 10.0, 7.0, 4.0, 2.0];
                 
-                // Calculate Manual Offset in Distance (Approx)
                 let extraOffset = 0;
                 if(this.app.session.activeProfile !== 'TEAM') {
                      const sec = this.app.session.manualOffsets[this.app.session.activeProfile] || 0;
@@ -1189,7 +1153,6 @@
             showMenu() {
                 this.els.modal.dataset.view = 'menu';
                 
-                // SIMPLE MODE MENU
                 if (this.app.mode === 'SIMPLE') {
                     this.els.modalContent.innerHTML = `
                         <div class="modal-header">Menu (Simple)</div>
@@ -1201,7 +1164,6 @@
                         </ul>
                     `;
                 } else {
-                    // DATA MODE MENU
                     this.els.modalContent.innerHTML = `
                         <div class="modal-header">Menu</div>
                         <ul class="modal-list">
@@ -1284,7 +1246,6 @@
                 const currentName = this.app.session.profiles[id];
                 this.tempOffset = this.app.session.manualOffsets[id] || 0;
                 
-                // Calculations for Stats
                 const teamTee = (21.0 - CONFIG.physics.bhIntercept - this.app.session.iceOffsetBH) / CONFIG.physics.bhSlope;
                 const pErr = this.app.session.getPlayerMeanError(id);
                 const pTee = (21.0 - CONFIG.physics.bhIntercept - pErr) / CONFIG.physics.bhSlope;
@@ -1328,7 +1289,6 @@
                     <button data-action="back-menu" style="width:100%; padding:14px; margin-top:10px; background:transparent; border:1px solid #444; color:#666; border-radius:8px;">Back</button>
                 `;
                 
-                // Draw Graph
                 setTimeout(() => {
                     const canvas = document.getElementById('graph-canvas');
                     const ctx = canvas.getContext('2d');
@@ -1348,7 +1308,6 @@
                 const mapX = (v) => ((v - xMin) / (xMax - xMin)) * w;
                 const mapY = (v) => h - ((v - yMin) / (yMax - yMin)) * h;
 
-                // Axis with Specific Labels
                 const labels = ['Mid', 'Tight', 'T 12', 'T 8', 'TEE', 'B 8', 'B 12'];
                 ctx.font = "10px sans-serif";
                 ctx.textAlign = "left";
@@ -1366,7 +1325,6 @@
                     }
                 });
 
-                // Calibration Line
                 const slope = type === 'BH' ? CONFIG.physics.bhSlope : CONFIG.physics.hhSlope;
                 const int = type === 'BH' ? CONFIG.physics.bhIntercept : CONFIG.physics.hhIntercept;
                 const off = type === 'BH' ? this.app.session.iceOffsetBH : this.app.session.iceOffsetHH;
@@ -1376,7 +1334,6 @@
                 ctx.lineTo(w, mapY((slope * xMax) + int + off));
                 ctx.stroke();
 
-                // Points
                 this.app.session.history.forEach(s => {
                     if(!s.actual) return;
                     let t = type === 'BH' ? s.bh : s.hh;
@@ -1405,11 +1362,9 @@
                 const mapX = (idx) => (idx / (shots.length + 1)) * w; 
                 const mapY = (val) => (h/2) - ((val / yRange) * (h/2)); 
 
-                // Zero Line
                 ctx.strokeStyle = '#444'; ctx.lineWidth = 1; ctx.beginPath();
                 ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
                 
-                // Grid Lines
                 ctx.strokeStyle = '#222'; ctx.beginPath();
                 ctx.moveTo(0, mapY(5)); ctx.lineTo(w, mapY(5));
                 ctx.moveTo(0, mapY(-5)); ctx.lineTo(w, mapY(-5));
@@ -1461,19 +1416,43 @@
             constructor() {
                 this.session = new Session();
                 this.timer = new Stopwatch();
-                this.ui = new UI(this);
                 this.mode = localStorage.getItem('cd_mode_v25') || 'SIMPLE';
+                this.ui = new UI(this);
                 this.ui.updateLayoutForMode();
                 
-                // Connect Timer Logic to UI
                 this.timer.onTick = (t) => this.ui.update(t);
                 this.timer.onFinish = (t) => this.ui.activateInput(t);
                 
-                // Init UI
                 this.ui.updateProfileUI();
                 this.ui.updateRefTable();
-                // RESET TO CLEAN STATE ON LOAD
                 this.ui.update(this.timer);
+
+                // -------------------------------------------------------
+                // FULLSCREEN: Attempt to hide system UI on first interaction.
+                //
+                // Android Chrome: Works well — hides the browser chrome and
+                //   system bars when the user taps anywhere.
+                //
+                // iOS Safari (browser): The Fullscreen API is NOT supported.
+                //   The status bar (battery, time, signal) cannot be hidden
+                //   from a web page running in Safari.
+                //
+                // iOS (Home Screen PWA): Add to Home Screen via Safari share
+                //   menu. The apple-mobile-web-app-capable meta tag will then
+                //   launch the app without the Safari toolbar. The status bar
+                //   will still show but with black-translucent styling so the
+                //   app content extends behind it (using safe-area-inset-top).
+                // -------------------------------------------------------
+                const requestFullscreen = () => {
+                    const el = document.documentElement;
+                    if (el.requestFullscreen) {
+                        el.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+                    } else if (el.webkitRequestFullscreen) {
+                        el.webkitRequestFullscreen(); // Safari/older Chrome
+                    }
+                };
+
+                document.addEventListener('touchstart', requestFullscreen, { once: true });
             }
 
             reset() {
